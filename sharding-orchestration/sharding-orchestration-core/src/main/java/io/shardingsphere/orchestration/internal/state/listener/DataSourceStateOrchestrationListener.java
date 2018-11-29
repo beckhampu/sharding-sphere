@@ -18,8 +18,8 @@
 package io.shardingsphere.orchestration.internal.state.listener;
 
 import io.shardingsphere.core.event.ShardingEventBusInstance;
-import io.shardingsphere.orchestration.internal.state.event.DisabledStateEventBusEvent;
 import io.shardingsphere.orchestration.internal.listener.OrchestrationListener;
+import io.shardingsphere.orchestration.internal.state.event.DisabledStateEvent;
 import io.shardingsphere.orchestration.internal.state.node.StateNode;
 import io.shardingsphere.orchestration.internal.state.service.DataSourceService;
 import io.shardingsphere.orchestration.reg.api.RegistryCenter;
@@ -48,12 +48,12 @@ public final class DataSourceStateOrchestrationListener implements Orchestration
     
     @Override
     public void watch() {
-        regCenter.watch(stateNode.getDataSourcesNodeFullPath(), new EventListener() {
+        regCenter.watch(stateNode.getDataSourcesNodeFullRootPath(), new EventListener() {
             
             @Override
             public void onChange(final DataChangedEvent event) {
                 if (DataChangedEvent.Type.UPDATED == event.getEventType() || DataChangedEvent.Type.DELETED == event.getEventType()) {
-                    ShardingEventBusInstance.getInstance().post(new DisabledStateEventBusEvent(dataSourceService.getDisabledSlaveDataSourceNames()));
+                    ShardingEventBusInstance.getInstance().post(new DisabledStateEvent(dataSourceService.getDisabledSlaveSchemaGroup()));
                 }
             }
         });

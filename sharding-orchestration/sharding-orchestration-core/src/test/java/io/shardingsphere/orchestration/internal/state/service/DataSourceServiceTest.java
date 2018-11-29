@@ -17,7 +17,6 @@
 
 package io.shardingsphere.orchestration.internal.state.service;
 
-import io.shardingsphere.api.config.MasterSlaveRuleConfiguration;
 import io.shardingsphere.api.config.ShardingRuleConfiguration;
 import io.shardingsphere.core.config.DataSourceConfiguration;
 import io.shardingsphere.orchestration.reg.api.RegistryCenter;
@@ -42,16 +41,16 @@ import static org.mockito.Mockito.when;
 public final class DataSourceServiceTest {
     
     private static final String DATA_SOURCE_YAML =
-            "ds_0: !!io.shardingsphere.core.config.DataSourceConfiguration\n"
+            "ds_0: !!io.shardingsphere.orchestration.yaml.YamlDataSourceConfiguration\n"
                     + "  dataSourceClassName: org.apache.commons.dbcp2.BasicDataSource\n" + "  properties:\n"
                     + "    driverClassName: com.mysql.jdbc.Driver\n" + "    url: jdbc:mysql://localhost:3306/ds_0\n" + "    username: root\n" + "    password: root\n"
-                    + "ds_1: !!io.shardingsphere.core.config.DataSourceConfiguration\n"
+                    + "ds_1: !!io.shardingsphere.orchestration.yaml.YamlDataSourceConfiguration\n"
                     + "  dataSourceClassName: org.apache.commons.dbcp2.BasicDataSource\n" + "  properties:\n"
                     + "    driverClassName: com.mysql.jdbc.Driver\n" + "    url: jdbc:mysql://localhost:3306/ds_1\n" + "    username: root\n" + "    password: root\n"
-                    + "ds_0_slave: !!io.shardingsphere.core.config.DataSourceConfiguration\n"
+                    + "ds_0_slave: !!io.shardingsphere.orchestration.yaml.YamlDataSourceConfiguration\n"
                     + "  dataSourceClassName: org.apache.commons.dbcp2.BasicDataSource\n" + "  properties:\n"
                     + "    driverClassName: com.mysql.jdbc.Driver\n" + "    url: jdbc:mysql://localhost:3306/ds_0_slave\n" + "    username: root\n" + "    password: root\n"
-                    + "ds_1_slave: !!io.shardingsphere.core.config.DataSourceConfiguration\n"
+                    + "ds_1_slave: !!io.shardingsphere.orchestration.yaml.YamlDataSourceConfiguration\n"
                     + "  dataSourceClassName: org.apache.commons.dbcp2.BasicDataSource\n" + "  properties:\n"
                     + "    driverClassName: com.mysql.jdbc.Driver\n" + "    url: jdbc:mysql://localhost:3306/ds_1_slave\n" + "    username: root\n" + "    password: root\n";
     
@@ -74,8 +73,8 @@ public final class DataSourceServiceTest {
     }
     
     @Test
-    public void assertPersistDataSourcesNode() {
-        dataSourceService.persistDataSourcesNode();
+    public void assertInitDataSourcesNode() {
+        dataSourceService.initDataSourcesNode();
         verify(regCenter).persist("/test/state/datasources", "");
     }
     
@@ -121,20 +120,18 @@ public final class DataSourceServiceTest {
     }
     
     @Test
-    public void assertGetDisabledSlaveDataSourceNamesWithDisabledDataSources() {
+    public void assertGetDisabledOrchestrationShardingSchemaGroupWithDisabledDataSources() {
         when(regCenter.getChildrenKeys("/test/config/schema")).thenReturn(Collections.singletonList("masterslave_db"));
         when(regCenter.getDirectly("/test/config/schema/masterslave_db/rule")).thenReturn(MASTER_SLAVE_RULE_YAML);
         when(regCenter.getChildrenKeys("/test/state/datasources")).thenReturn(Collections.singletonList("masterslave_db.ds_0_slave"));
         when(regCenter.get("/test/state/datasources/masterslave_db.ds_0_slave")).thenReturn("disabled");
-        MasterSlaveRuleConfiguration actual = dataSourceService.getAvailableMasterSlaveRuleConfiguration("masterslave_db");
-        assertFalse(actual.getSlaveDataSourceNames().contains("ds_0_slave"));
+        assertTrue(dataSourceService.getDisabledSlaveSchemaGroup().getDataSourceNames("masterslave_db").contains("ds_0_slave"));
     }
     
     @Test
-    public void assertGetDisabledSlaveDataSourceNamesWithoutDisabledDataSources() {
+    public void assertGetDisabledOrchestrationShardingSchemaGroupWithoutDisabledDataSources() {
         when(regCenter.getChildrenKeys("/test/config/schema")).thenReturn(Collections.singletonList("masterslave_db"));
         when(regCenter.getDirectly("/test/config/schema/masterslave_db/rule")).thenReturn(MASTER_SLAVE_RULE_YAML);
-        MasterSlaveRuleConfiguration actual = dataSourceService.getAvailableMasterSlaveRuleConfiguration("masterslave_db");
-        assertTrue(actual.getSlaveDataSourceNames().contains("ds_0_slave"));
+        assertTrue(dataSourceService.getDisabledSlaveSchemaGroup().getDataSourceNames("masterslave_db").isEmpty());
     }
 }

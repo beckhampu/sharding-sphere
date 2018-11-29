@@ -17,20 +17,18 @@
 
 package io.shardingsphere.orchestration.internal.state.event;
 
+import io.shardingsphere.orchestration.internal.state.schema.OrchestrationShardingSchemaGroup;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Collection;
-import java.util.Map;
-
 /**
- * Disabled event bus event.
+ * Disabled state event.
  *
  * @author panjuan
  */
 @RequiredArgsConstructor
 @Getter
-public final class DisabledStateEventBusEvent {
+public final class DisabledStateEvent {
     
-    private final Map<String, Collection<String>> disabledSchemaDataSourceMap;
+    private final OrchestrationShardingSchemaGroup disabledGroup;
 }

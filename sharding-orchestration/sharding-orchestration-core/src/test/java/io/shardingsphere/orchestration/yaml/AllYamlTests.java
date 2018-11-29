@@ -15,19 +15,17 @@
  * </p>
  */
 
-package io.shardingsphere.orchestration.internal.state.event;
+package io.shardingsphere.orchestration.yaml;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
-/**
- * Circuit event bus event.
- *
- * @author panjuan
- */
-@RequiredArgsConstructor
-@Getter
-public final class CircuitStateEventBusEvent {
-    
-    private final boolean isCircuitBreak;
+@RunWith(Suite.class)
+@SuiteClasses({
+        DefaultYamlRepresenterTest.class, 
+        YamlOrchestrationConfigurationTest.class,
+        YamlDataSourceConfigurationTest.class
+})
+public final class AllYamlTests {
 }

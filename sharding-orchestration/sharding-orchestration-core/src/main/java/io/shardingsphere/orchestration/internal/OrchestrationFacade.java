@@ -55,7 +55,6 @@ public final class OrchestrationFacade implements AutoCloseable {
     
     private final DataSourceService dataSourceService;
     
-    @Getter
     private final OrchestrationListenerManager listenerManager;
     
     public OrchestrationFacade(final OrchestrationConfiguration orchestrationConfig, final Collection<String> shardingSchemaNames) {
@@ -83,7 +82,7 @@ public final class OrchestrationFacade implements AutoCloseable {
             configService.persistConfiguration(entry.getKey(), dataSourceConfigurationMap.get(entry.getKey()), schemaRuleMap.get(entry.getKey()), authentication, configMap, props, isOverwrite);
         }
         instanceStateService.persistInstanceOnline();
-        dataSourceService.persistDataSourcesNode();
+        dataSourceService.initDataSourcesNode();
         listenerManager.initListeners();
     }
     
@@ -92,7 +91,7 @@ public final class OrchestrationFacade implements AutoCloseable {
      */
     public void init() {
         instanceStateService.persistInstanceOnline();
-        dataSourceService.persistDataSourcesNode();
+        dataSourceService.initDataSourcesNode();
         listenerManager.initListeners();
     }
     

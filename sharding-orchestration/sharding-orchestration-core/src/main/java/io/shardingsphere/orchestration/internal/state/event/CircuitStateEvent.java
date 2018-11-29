@@ -15,21 +15,19 @@
  * </p>
  */
 
-package io.shardingsphere.orchestration.internal.yaml.fixture;
+package io.shardingsphere.orchestration.internal.state.event;
 
 import lombok.Getter;
-import lombok.Setter;
+import lombok.RequiredArgsConstructor;
 
-import java.util.Collection;
-import java.util.Map;
-
+/**
+ * Circuit state event.
+ *
+ * @author panjuan
+ */
+@RequiredArgsConstructor
 @Getter
-@Setter
-public final class DefaultRepresenterFixture {
+public final class CircuitStateEvent {
     
-    private String value;
-    
-    private Collection<String> collection;
-    
-    private Map<String, String> map;
+    private final boolean isCircuitBreak;
 }

@@ -15,7 +15,7 @@
  * </p>
  */
 
-package io.shardingsphere.orchestration.internal.yaml;
+package io.shardingsphere.orchestration.yaml;
 
 import org.yaml.snakeyaml.introspector.Property;
 import org.yaml.snakeyaml.nodes.CollectionNode;
@@ -32,10 +32,10 @@ import org.yaml.snakeyaml.representer.Representer;
  * @author panjuan
  * @author zhangliang
  */
-public class DefaultRepresenter extends Representer {
+public final class DefaultYamlRepresenter extends Representer {
     
     @Override
-    protected final NodeTuple representJavaBeanProperty(final Object javaBean, final Property property, final Object propertyValue, final Tag customTag) {
+    protected NodeTuple representJavaBeanProperty(final Object javaBean, final Property property, final Object propertyValue, final Tag customTag) {
         NodeTuple tuple = super.representJavaBeanProperty(javaBean, property, propertyValue, customTag);
         return isUnwantedNodeTuple(tuple.getValueNode()) ? null : tuple;
     }
