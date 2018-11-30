@@ -18,6 +18,7 @@
 package io.shardingsphere.shardingproxy.backend;
 
 import io.shardingsphere.core.constant.DatabaseType;
+import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.shardingproxy.backend.jdbc.connection.BackendConnection;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.common.packet.DatabasePacket;
@@ -37,7 +38,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public final class SchemaBroadcastBackendHandler implements BackendHandler {
     
-    private final int connectionId;
+    private static final GlobalRegistry GLOBAL_REGISTRY = GlobalRegistry.getInstance();
     
     private final int sequenceId;
     
@@ -51,9 +52,11 @@ public final class SchemaBroadcastBackendHandler implements BackendHandler {
     public CommandResponsePackets execute() {
         List<DatabasePacket> packets = new LinkedList<>();
         for (String schema : GlobalRegistry.getInstance().getSchemaNames()) {
-            BackendHandler backendHandler = BackendHandlerFactory.newTextProtocolInstance(connectionId, sequenceId, sql, backendConnection, databaseType, schema);
+            BackendHandler backendHandler = BackendHandlerFactory.newTextProtocolInstance(sequenceId, sql, backendConnection, databaseType, schema);
             CommandResponsePackets commandResponsePackets = backendHandler.execute();
-            packets.addAll(commandResponsePackets.getPackets());
+            if (!GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)) {
+                packets.addAll(commandResponsePackets.getPackets());
+            }
         }
         return merge(packets);
     }

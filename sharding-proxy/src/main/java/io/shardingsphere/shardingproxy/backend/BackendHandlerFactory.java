@@ -63,7 +63,6 @@ public final class BackendHandlerFactory {
     /**
      * Create new instance of text protocol backend handler.
      *
-     * @param connectionId connection ID of database connected
      * @param sequenceId sequence ID of SQL packet
      * @param sql SQL to be executed
      * @param backendConnection backend connection
@@ -72,18 +71,17 @@ public final class BackendHandlerFactory {
      * @return instance of text protocol backend handler
      */
     public static BackendHandler newTextProtocolInstance(
-            final int connectionId, final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType, final String schema) {
+            final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType, final String schema) {
         LogicSchema logicSchema = GLOBAL_REGISTRY.getLogicSchema(schema);
         backendConnection.setLogicSchema(logicSchema);
         return GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)
-                ? new NettyBackendHandler(logicSchema, connectionId, sequenceId, sql, databaseType)
+                ? new NettyBackendHandler(logicSchema, sequenceId, sql, databaseType)
                 : new JDBCBackendHandler(logicSchema, sql, new JDBCExecuteEngine(backendConnection, new StatementExecutorWrapper(logicSchema)));
     }
     
     /**
      * Create new instance of text protocol backend handler.
      *
-     * @param connectionId connection ID of database connected
      * @param sequenceId sequence ID of SQL packet
      * @param sql SQL to be executed
      * @param parameters SQL parameters
@@ -92,19 +90,18 @@ public final class BackendHandlerFactory {
      * @param schema schema
      * @return instance of text protocol backend handler
      */
-    public static BackendHandler newBinaryProtocolInstance(final int connectionId, final int sequenceId, final String sql, final List<Object> parameters,
+    public static BackendHandler newBinaryProtocolInstance(final int sequenceId, final String sql, final List<Object> parameters,
                                                            final BackendConnection backendConnection, final DatabaseType databaseType, final String schema) {
         LogicSchema logicSchema = GLOBAL_REGISTRY.getLogicSchema(schema);
         backendConnection.setLogicSchema(logicSchema);
         return GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)
-                ? new NettyBackendHandler(logicSchema, connectionId, sequenceId, sql, databaseType)
+                ? new NettyBackendHandler(logicSchema, sequenceId, sql, databaseType)
                 : new JDBCBackendHandler(logicSchema, sql, new JDBCExecuteEngine(backendConnection, new PreparedStatementExecutorWrapper(logicSchema, parameters)));
     }
     
     /**
      * Create new instance by sql judge.
-     * 
-     * @param connectionId connection ID of database connected
+     *
      * @param sequenceId sequence ID of SQL packet
      * @param sql SQL to be executed
      * @param backendConnection backend connection
@@ -113,10 +110,10 @@ public final class BackendHandlerFactory {
      * @return instance of backend handler
      */
     public static BackendHandler createBackendHandler(
-            final int connectionId, final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType, final FrontendHandler frontendHandler) {
+            final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType, final FrontendHandler frontendHandler) {
         SQLStatement sqlStatement = new SQLJudgeEngine(sql).judge();
         if (SQLType.DCL == sqlStatement.getType() || sqlStatement instanceof SetStatement) {
-            return new SchemaBroadcastBackendHandler(connectionId, sequenceId, sql, backendConnection, databaseType);
+            return new SchemaBroadcastBackendHandler(sequenceId, sql, backendConnection, databaseType);
         }
         
         if (sqlStatement instanceof UseStatement || sqlStatement instanceof ShowDatabasesStatement) {
@@ -124,19 +121,21 @@ public final class BackendHandlerFactory {
         }
         
         if (sqlStatement instanceof ShowOtherStatement) {
-            return new SchemaUnicastBackendHandler(connectionId, sequenceId, sql, backendConnection, DatabaseType.MySQL);
+            return new SchemaUnicastBackendHandler(sequenceId, sql, backendConnection, DatabaseType.MySQL);
         }
         
         String schema = getSchema(sqlStatement).isPresent() ? getSchema(sqlStatement).get() : frontendHandler.getCurrentSchema();
-        return newTextProtocolInstance(connectionId, sequenceId, sql, backendConnection, DatabaseType.MySQL, schema);
+        return newTextProtocolInstance(sequenceId, sql, backendConnection, DatabaseType.MySQL, schema);
     }
     
     private static Optional<String> getSchema(final SQLStatement sqlStatement) {
         List<SQLToken> sqlTokens = sqlStatement.getSQLTokens();
-        if (!sqlTokens.isEmpty()
-                && (sqlStatement instanceof ShowTablesStatement || sqlStatement instanceof ShowColumnsStatement
+        if (sqlTokens.isEmpty()) {
+            return Optional.absent();
+        }
+        if (sqlStatement instanceof ShowTablesStatement || sqlStatement instanceof ShowColumnsStatement
                 || sqlStatement instanceof ShowIndexStatement || sqlStatement instanceof ShowTableStatusStatement
-                || sqlStatement instanceof ShowCreateTableStatement)) {
+                || sqlStatement instanceof ShowCreateTableStatement) {
             return Optional.of(((SchemaToken) new LinkedList<>(sqlTokens).getLast()).getSchemaName());
         }
         return Optional.absent();

@@ -33,9 +33,9 @@ public final class SchemaUnicastBackendHandler implements BackendHandler {
     
     private final BackendHandler backendHandler;
     
-    public SchemaUnicastBackendHandler(final int connectionId, final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType) {
+    public SchemaUnicastBackendHandler(final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType) {
         String schema = GlobalRegistry.getInstance().getSchemaNames().iterator().next();
-        backendHandler = BackendHandlerFactory.newTextProtocolInstance(connectionId, sequenceId, sql, backendConnection, databaseType, schema);
+        backendHandler = BackendHandlerFactory.newTextProtocolInstance(sequenceId, sql, backendConnection, databaseType, schema);
     }
     
     @Override

@@ -17,11 +17,15 @@
 
 package io.shardingsphere.shardingproxy.runtime;
 
-import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import io.netty.channel.Channel;
+import io.shardingsphere.shardingproxy.backend.netty.result.collector.QueryResultCollector;
+import io.shardingsphere.shardingproxy.frontend.mysql.CommandExecutor;
+import io.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandPacket;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Channel registry.
@@ -32,39 +36,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ChannelRegistry {
     
-    private static final ChannelRegistry INSTANCE = new ChannelRegistry();
+    public static final ThreadLocal<Channel> LOCAL_FRONTEND_CHANNEL = new ThreadLocal<>();
     
-    // TODO :wangkai do not use cache, should use map, and add unregister feature
-    private final Cache<String, Integer> connectionIds = CacheBuilder.newBuilder().build();
+    public static final ThreadLocal<String> COMMAND_PACKET_ID = new ThreadLocal<>();
     
-    /**
-     * Get instance of channel registry.
-     *
-     * @return instance of channel registry
-     */
-    public static ChannelRegistry getInstance() {
-        return INSTANCE;
-    }
+    public static final Map<String, CommandExecutor> FRONTEND_CHANNEL_COMMAND_EXECUTOR = new ConcurrentHashMap<>();
     
-    /**
-     * Put connection id by channel ID.
-     *
-     * @param channelId netty channel ID
-     * @param connectionId database connection ID
-     */
-    public void putConnectionId(final String channelId, final int connectionId) {
-        connectionIds.put(channelId, connectionId);
-    }
+    public static final Map<String, Channel> FRONTEND_CHANNEL = new ConcurrentHashMap<>();
     
-    /**
-     * Get connection id by channel ID.
-     *
-     * @param channelId netty channel ID
-     * @return connectionId database connection ID
-     */
-    public int getConnectionId(final String channelId) {
-        Integer result = connectionIds.getIfPresent(channelId);
-        Preconditions.checkNotNull(result, String.format("Can not get connection id via channel id: %s", channelId));
-        return result;
-    }
+    public static final Map<String, CommandPacket> FRONTEND_CHANNEL_COMMAND_PACKET = new ConcurrentHashMap<>();
+    
+    public static final Map<String, QueryResultCollector> BACKEND_CHANNEL_QUERY_RESULT_COLLECTOR = new ConcurrentHashMap<>();
+    
+    public static final Map<String, String> BACKEND_CHANNEL_DATABASE_NAME = new ConcurrentHashMap<>();
 }

@@ -17,6 +17,7 @@
 
 package io.shardingsphere.shardingproxy.backend;
 
+import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.core.merger.MergedResult;
 import io.shardingsphere.core.merger.dal.show.ShowDatabasesMergedResult;
 import io.shardingsphere.core.parsing.parser.dialect.mysql.statement.ShowDatabasesStatement;
@@ -24,6 +25,8 @@ import io.shardingsphere.core.parsing.parser.dialect.mysql.statement.UseStatemen
 import io.shardingsphere.core.parsing.parser.sql.SQLStatement;
 import io.shardingsphere.core.util.SQLUtil;
 import io.shardingsphere.shardingproxy.frontend.common.FrontendHandler;
+import io.shardingsphere.shardingproxy.frontend.mysql.CommandExecutor;
+import io.shardingsphere.shardingproxy.runtime.ChannelRegistry;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ColumnType;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ServerErrorCode;
@@ -34,6 +37,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.command.query.Quer
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.EofPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
+import io.shardingsphere.shardingproxy.util.ChannelUtils;
 import lombok.RequiredArgsConstructor;
 
 import java.sql.SQLException;
@@ -66,14 +70,19 @@ public final class SchemaIgnoreBackendHandler implements BackendHandler {
     
     @Override
     public CommandResponsePackets execute() {
+        CommandResponsePackets commandResponsePackets = null;
         if (sqlStatement instanceof UseStatement) {
-            return handleUseStatement((UseStatement) sqlStatement, frontendHandler);
+            commandResponsePackets = handleUseStatement((UseStatement) sqlStatement, frontendHandler);
         }
-        
         if (sqlStatement instanceof ShowDatabasesStatement) {
-            return handleShowDatabasesStatement();
+            commandResponsePackets = handleShowDatabasesStatement();
         }
-        return null;
+        if (GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)) {
+            CommandExecutor commandExecutor = ChannelRegistry.FRONTEND_CHANNEL_COMMAND_EXECUTOR.get(ChannelUtils.getLongTextId(ChannelRegistry.LOCAL_FRONTEND_CHANNEL.get()));
+            commandExecutor.writeResult(commandResponsePackets);
+            return null;
+        }
+        return commandResponsePackets;
     }
     
     @Override

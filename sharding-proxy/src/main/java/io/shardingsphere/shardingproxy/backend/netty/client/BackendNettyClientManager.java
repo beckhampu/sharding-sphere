@@ -17,6 +17,7 @@
 
 package io.shardingsphere.shardingproxy.backend.netty.client;
 
+import io.netty.channel.EventLoopGroup;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -25,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * backend netty client manager.
+ * Backend netty client manager.
  *
  * @author chenqingyang
  */
@@ -48,7 +49,7 @@ public final class BackendNettyClientManager {
     }
     
     /**
-     * get backend netty client of schema.
+     * Get backend netty client of schema.
      *
      * @param schema schema
      * @return backend netty client of schema
@@ -60,22 +61,14 @@ public final class BackendNettyClientManager {
     /**
      * Start all backend connection client for netty.
      *
+     * @param eventLoopGroup the IO event loop group for backend connection with DB
      * @throws InterruptedException interrupted exception
      */
-    public void start() throws InterruptedException {
+    public void start(final EventLoopGroup eventLoopGroup) throws InterruptedException {
         for (String each : GLOBAL_REGISTRY.getSchemaNames()) {
-            BackendNettyClient backendNettyClient = new BackendNettyClient(GLOBAL_REGISTRY.getLogicSchema(each));
+            BackendNettyClient backendNettyClient = new BackendNettyClient(GLOBAL_REGISTRY.getLogicSchema(each), eventLoopGroup);
             clientMap.put(each, backendNettyClient);
             backendNettyClient.start();
-        }
-    }
-    
-    /**
-     * Stop all backend connection client for netty.
-     */
-    public void stop() {
-        for (BackendNettyClient backendNettyClient : clientMap.values()) {
-            backendNettyClient.stop();
         }
     }
 }

@@ -26,6 +26,7 @@ import io.shardingsphere.core.constant.properties.ShardingProperties;
 import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.core.constant.transaction.TransactionType;
 import io.shardingsphere.core.rule.Authentication;
+import io.shardingsphere.shardingproxy.frontend.ShardingProxy;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
@@ -72,16 +73,11 @@ public final class MySQLFrontendHandlerTest {
         Field field = ConnectionIdGenerator.class.getDeclaredField("currentId");
         field.setAccessible(true);
         field.set(ConnectionIdGenerator.getInstance(), 0);
-        mysqlFrontendHandler = new MySQLFrontendHandler(eventLoopGroup);
+        mysqlFrontendHandler = new MySQLFrontendHandler();
     }
     
     @Test
     public void assertHandshake() {
-        Channel channel = mock(Channel.class);
-        ChannelId channelId = mock(ChannelId.class);
-        when(channelId.asShortText()).thenReturn("1");
-        when(channel.id()).thenReturn(channelId);
-        when(context.channel()).thenReturn(channel);
         mysqlFrontendHandler.handshake(context);
         verify(context).writeAndFlush(isA(HandshakePacket.class));
     }
@@ -113,7 +109,14 @@ public final class MySQLFrontendHandlerTest {
         when(channel.id()).thenReturn(channelId);
         when(context.channel()).thenReturn(channel);
         setTransactionType();
+        setShardingProxyUserGroup(eventLoopGroup);
         mysqlFrontendHandler.executeCommand(context, mock(ByteBuf.class));
+    }
+    
+    private void setShardingProxyUserGroup(final EventLoopGroup eventLoopGroup) throws ReflectiveOperationException {
+        Field field = ShardingProxy.getInstance().getClass().getDeclaredField("userGroup");
+        field.setAccessible(true);
+        field.set(ShardingProxy.getInstance(), eventLoopGroup);
     }
     
     private void setAuthentication(final Object value) throws ReflectiveOperationException {

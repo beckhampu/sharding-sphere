@@ -18,9 +18,8 @@
 package io.shardingsphere.shardingproxy.backend.netty.client;
 
 import io.netty.channel.Channel;
-import io.netty.channel.pool.ChannelPoolHandler;
+import io.netty.channel.pool.AbstractChannelPoolHandler;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Channel pool handler of backend netty client.
@@ -29,26 +28,14 @@ import lombok.extern.slf4j.Slf4j;
  * @author linjiaqi
  */
 @RequiredArgsConstructor
-@Slf4j
-public final class BackendNettyClientChannelPoolHandler implements ChannelPoolHandler {
+public final class BackendNettyClientChannelPoolHandler extends AbstractChannelPoolHandler {
     
     private final String dataSourceName;
     
     private final String schemaName;
     
     @Override
-    public void channelReleased(final Channel channel) {
-        log.info("channelReleased. Channel ID: {}" + channel.id().asShortText());
-    }
-    
-    @Override
-    public void channelAcquired(final Channel channel) {
-        log.info("channelAcquired. Channel ID: {}" + channel.id().asShortText());
-    }
-    
-    @Override
     public void channelCreated(final Channel channel) {
-        log.info("channelCreated. Channel ID: {}" + channel.id().asShortText());
         channel.pipeline().addLast(new BackendNettyClientChannelInitializer(dataSourceName, schemaName));
     }
 }

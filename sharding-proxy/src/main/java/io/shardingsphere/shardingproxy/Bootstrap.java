@@ -89,7 +89,7 @@ public final class Bootstrap {
                                                    final Map<String, Object> configMap, final Properties prop, final int port) throws InterruptedException {
         GlobalRegistry.getInstance().init(getDataSourceParameterMap(ruleConfigs), getRuleConfiguration(ruleConfigs), authentication, configMap, prop);
         initOpenTracing();
-        new ShardingProxy().start(port);
+        ShardingProxy.getInstance().start(port);
     }
     
     private static void startWithRegistryCenter(final YamlProxyServerConfiguration serverConfig,
@@ -99,7 +99,7 @@ public final class Bootstrap {
             GlobalRegistry.getInstance().init(getSchemaDataSourceParameterMap(orchestrationFacade), getSchemaRules(orchestrationFacade),
                     orchestrationFacade.getConfigService().loadAuthentication(), orchestrationFacade.getConfigService().loadConfigMap(), orchestrationFacade.getConfigService().loadProperties(), true);
             initOpenTracing();
-            new ShardingProxy().start(port);
+            ShardingProxy.getInstance().start(port);
         }
     }
     

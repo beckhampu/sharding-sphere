@@ -47,14 +47,13 @@ public final class CommandPacketFactory {
      * Create new instance of command packet.
      *
      * @param sequenceId        sequence id
-     * @param connectionId      MySQL connection id
      * @param payload           MySQL packet payload
      * @param backendConnection backend connection
      * @param frontendHandler   frontend handler
      * @return command packet
      * @throws SQLException SQL exception
      */
-    public static CommandPacket newInstance(final int sequenceId, final int connectionId, final MySQLPacketPayload payload, 
+    public static CommandPacket newInstance(final int sequenceId, final MySQLPacketPayload payload,
                                             final BackendConnection backendConnection, final FrontendHandler frontendHandler) throws SQLException {
         int commandPacketTypeValue = payload.readInt1();
         CommandPacketType type = CommandPacketType.valueOf(commandPacketTypeValue);
@@ -64,13 +63,13 @@ public final class CommandPacketFactory {
             case COM_INIT_DB:
                 return new ComInitDbPacket(sequenceId, payload, frontendHandler);
             case COM_FIELD_LIST:
-                return new ComFieldListPacket(sequenceId, connectionId, frontendHandler.getCurrentSchema(), payload, backendConnection);
+                return new ComFieldListPacket(sequenceId, frontendHandler.getCurrentSchema(), payload, backendConnection);
             case COM_QUERY:
-                return new ComQueryPacket(sequenceId, connectionId, payload, backendConnection, frontendHandler);
+                return new ComQueryPacket(sequenceId, payload, backendConnection, frontendHandler);
             case COM_STMT_PREPARE:
                 return new ComStmtPreparePacket(sequenceId, frontendHandler.getCurrentSchema(), payload);
             case COM_STMT_EXECUTE:
-                return new ComStmtExecutePacket(sequenceId, connectionId, frontendHandler.getCurrentSchema(), payload, backendConnection);
+                return new ComStmtExecutePacket(sequenceId, frontendHandler.getCurrentSchema(), payload, backendConnection);
             case COM_STMT_CLOSE:
                 return new ComStmtClosePacket(sequenceId, payload);
             case COM_PING:

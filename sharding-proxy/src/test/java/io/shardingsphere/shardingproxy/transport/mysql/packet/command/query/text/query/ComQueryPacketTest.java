@@ -132,7 +132,7 @@ public final class ComQueryPacketTest {
         when(backendHandler.execute()).thenReturn(new CommandResponsePackets(expectedFieldCountPacket));
         when(backendHandler.next()).thenReturn(true, false);
         when(backendHandler.getResultValue()).thenReturn(new ResultPacket(2, Collections.<Object>singletonList(99999L), 1, Collections.singletonList(ColumnType.MYSQL_TYPE_LONG)));
-        ComQueryPacket packet = new ComQueryPacket(1, 1000, payload, backendConnection, frontendHandler);
+        ComQueryPacket packet = new ComQueryPacket(1, payload, backendConnection, frontendHandler);
         setBackendHandler(packet, backendHandler);
         Optional<CommandResponsePackets> actual = packet.execute();
         assertTrue(actual.isPresent());
@@ -155,7 +155,7 @@ public final class ComQueryPacketTest {
     public void assertExecuteTCLWithLocalTransaction() {
         backendConnection.getAndSetStatus(ConnectionStatus.TRANSACTION);
         when(payload.readStringEOF()).thenReturn("COMMIT");
-        ComQueryPacket packet = new ComQueryPacket(1, 1000, payload, backendConnection, frontendHandler);
+        ComQueryPacket packet = new ComQueryPacket(1, payload, backendConnection, frontendHandler);
         Optional<CommandResponsePackets> actual = packet.execute();
         assertTrue(actual.isPresent());
         assertOKPacket(actual.get());
@@ -166,7 +166,7 @@ public final class ComQueryPacketTest {
         backendConnection.setTransactionType(TransactionType.XA);
         backendConnection.getAndSetStatus(ConnectionStatus.TRANSACTION);
         when(payload.readStringEOF()).thenReturn("ROLLBACK");
-        ComQueryPacket packet = new ComQueryPacket(1, 1000, payload, backendConnection, frontendHandler);
+        ComQueryPacket packet = new ComQueryPacket(1, payload, backendConnection, frontendHandler);
         Optional<CommandResponsePackets> actual = packet.execute();
         assertTrue(actual.isPresent());
         assertOKPacket(actual.get());
@@ -178,7 +178,7 @@ public final class ComQueryPacketTest {
         backendConnection.setTransactionType(TransactionType.XA);
         backendConnection.getAndSetStatus(ConnectionStatus.TRANSACTION);
         when(payload.readStringEOF()).thenReturn("COMMIT");
-        ComQueryPacket packet = new ComQueryPacket(1, 1000, payload, backendConnection, frontendHandler);
+        ComQueryPacket packet = new ComQueryPacket(1, payload, backendConnection, frontendHandler);
         Optional<CommandResponsePackets> actual = packet.execute();
         assertTrue(actual.isPresent());
         assertOKPacket(actual.get());

@@ -62,10 +62,10 @@ public final class ComQueryPacket implements QueryCommandPacket {
     
     private final BackendTransactionManager backendTransactionManager;
     
-    public ComQueryPacket(final int sequenceId, final int connectionId, final MySQLPacketPayload payload, final BackendConnection backendConnection, final FrontendHandler frontendHandler) {
+    public ComQueryPacket(final int sequenceId, final MySQLPacketPayload payload, final BackendConnection backendConnection, final FrontendHandler frontendHandler) {
         this.sequenceId = sequenceId;
         sql = payload.readStringEOF();
-        backendHandler = BackendHandlerFactory.createBackendHandler(connectionId, sequenceId, sql, backendConnection, DatabaseType.MySQL, frontendHandler);
+        backendHandler = BackendHandlerFactory.createBackendHandler(sequenceId, sql, backendConnection, DatabaseType.MySQL, frontendHandler);
         backendTransactionManager = new BackendTransactionManager(backendConnection);
     }
     
@@ -91,7 +91,7 @@ public final class ComQueryPacket implements QueryCommandPacket {
         }
         Optional<TransactionOperationType> operationType = TransactionOperationType.getOperationType(sql);
         if (!operationType.isPresent()) {
-            return Optional.of(backendHandler.execute());
+            return Optional.fromNullable(backendHandler.execute());
         }
         backendTransactionManager.doInTransaction(operationType.get());
         return Optional.of(new CommandResponsePackets(new OKPacket(1)));

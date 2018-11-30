@@ -20,10 +20,9 @@ package io.shardingsphere.shardingproxy.frontend.mysql;
 import com.google.common.base.Strings;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.EventLoopGroup;
+import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.shardingproxy.frontend.common.FrontendHandler;
 import io.shardingsphere.shardingproxy.frontend.common.executor.ExecutorGroup;
-import io.shardingsphere.shardingproxy.runtime.ChannelRegistry;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ServerErrorCode;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.MySQLPacketPayload;
@@ -46,14 +45,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public final class MySQLFrontendHandler extends FrontendHandler {
     
-    private final EventLoopGroup eventLoopGroup;
+    private static final GlobalRegistry GLOBAL_REGISTRY = GlobalRegistry.getInstance();
     
     private final AuthenticationHandler authenticationHandler = new AuthenticationHandler();
     
     @Override
     protected void handshake(final ChannelHandlerContext context) {
         int connectionId = ConnectionIdGenerator.getInstance().nextId();
-        ChannelRegistry.getInstance().putConnectionId(context.channel().id().asShortText(), connectionId);
         context.writeAndFlush(new HandshakePacket(connectionId, authenticationHandler.getAuthPluginData()));
     }
     
@@ -78,11 +76,18 @@ public final class MySQLFrontendHandler extends FrontendHandler {
     
     @Override
     protected void executeCommand(final ChannelHandlerContext context, final ByteBuf message) {
-        new ExecutorGroup(eventLoopGroup, context.channel().id()).getExecutorService().execute(new CommandExecutor(context, message, this));
+        if (GlobalRegistry.getInstance().getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)) {
+            context.channel().eventLoop().execute(new CommandExecutor(context, message, this));
+        } else {
+            new ExecutorGroup(context.channel().id()).getExecutorService().execute(new CommandExecutor(context, message, this));
+        }
     }
     
     @Override
     public void channelWritabilityChanged(final ChannelHandlerContext context) {
+        if (GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)) {
+            return;
+        }
         if (context.channel().isWritable()) {
             synchronized (this) {
                 this.notifyAll();

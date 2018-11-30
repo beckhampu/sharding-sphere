@@ -18,7 +18,10 @@
 package io.shardingsphere.shardingproxy.transport.mysql.packet.command.admin.initdb;
 
 import com.google.common.base.Optional;
+import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.shardingproxy.frontend.common.FrontendHandler;
+import io.shardingsphere.shardingproxy.frontend.mysql.CommandExecutor;
+import io.shardingsphere.shardingproxy.runtime.ChannelRegistry;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ServerErrorCode;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.MySQLPacketPayload;
@@ -27,6 +30,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandPac
 import io.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
+import io.shardingsphere.shardingproxy.util.ChannelUtils;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +42,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public final class ComInitDbPacket implements CommandPacket {
+    
+    private static final GlobalRegistry GLOBAL_REGISTRY = GlobalRegistry.getInstance();
     
     @Getter
     private final int sequenceId;
@@ -61,10 +67,19 @@ public final class ComInitDbPacket implements CommandPacket {
     @Override
     public Optional<CommandResponsePackets> execute() {
         log.debug("Schema name received for Sharding-Proxy: {}", schema);
+        CommandResponsePackets commandResponsePackets;
         if (GlobalRegistry.getInstance().schemaExists(schema)) {
             frontendHandler.setCurrentSchema(schema);
-            return Optional.of(new CommandResponsePackets(new OKPacket(getSequenceId() + 1)));
+            commandResponsePackets = new CommandResponsePackets(new OKPacket(getSequenceId() + 1));
+        } else {
+            commandResponsePackets = new CommandResponsePackets(new ErrPacket(getSequenceId() + 1, ServerErrorCode.ER_BAD_DB_ERROR, schema));
         }
-        return Optional.of(new CommandResponsePackets(new ErrPacket(getSequenceId() + 1, ServerErrorCode.ER_BAD_DB_ERROR, schema)));
+        if (GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO)) {
+            CommandExecutor commandExecutor = ChannelRegistry.FRONTEND_CHANNEL_COMMAND_EXECUTOR.get(ChannelUtils.getLongTextId(ChannelRegistry.LOCAL_FRONTEND_CHANNEL.get()));
+            commandExecutor.writeResult(commandResponsePackets);
+        } else {
+            return Optional.of(commandResponsePackets);
+        }
+        return Optional.absent();
     }
 }

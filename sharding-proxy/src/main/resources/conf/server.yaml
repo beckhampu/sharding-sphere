@@ -24,6 +24,7 @@
 #    # BASE: Proxy will run with B.A.S.E transaction.
 #  proxy.transaction.type: LOCAL
 #  proxy.opentracing.enabled: false
+#  proxy.backend.use.nio: true
 #  sql.show: false
 #
 #configMap:

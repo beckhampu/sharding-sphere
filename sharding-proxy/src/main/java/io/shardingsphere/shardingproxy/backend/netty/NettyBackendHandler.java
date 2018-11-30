@@ -18,7 +18,6 @@
 package io.shardingsphere.shardingproxy.backend.netty;
 
 import io.netty.channel.Channel;
-import io.netty.channel.pool.SimpleChannelPool;
 import io.shardingsphere.core.constant.DatabaseType;
 import io.shardingsphere.core.constant.SQLType;
 import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
@@ -36,9 +35,7 @@ import io.shardingsphere.shardingproxy.backend.AbstractBackendHandler;
 import io.shardingsphere.shardingproxy.backend.BackendExecutorContext;
 import io.shardingsphere.shardingproxy.backend.ResultPacket;
 import io.shardingsphere.shardingproxy.backend.netty.client.BackendNettyClientManager;
-import io.shardingsphere.shardingproxy.backend.netty.client.response.mysql.MySQLQueryResult;
-import io.shardingsphere.shardingproxy.backend.netty.future.FutureRegistry;
-import io.shardingsphere.shardingproxy.backend.netty.future.SynchronizedFuture;
+import io.shardingsphere.shardingproxy.backend.netty.result.collector.QueryResultCollector;
 import io.shardingsphere.shardingproxy.runtime.ChannelRegistry;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.runtime.metadata.ProxyTableMetaDataConnectionManager;
@@ -47,23 +44,21 @@ import io.shardingsphere.shardingproxy.runtime.schema.MasterSlaveSchema;
 import io.shardingsphere.shardingproxy.runtime.schema.ShardingSchema;
 import io.shardingsphere.shardingproxy.transport.common.packet.DatabasePacket;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ColumnType;
+import io.shardingsphere.shardingproxy.transport.mysql.constant.ServerErrorCode;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.command.query.text.query.ComQueryPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
+import io.shardingsphere.shardingproxy.util.ChannelUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -83,20 +78,18 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     
     private final LogicSchema logicSchema;
     
-    private final int connectionId;
-    
     private final int sequenceId;
     
     private final String sql;
     
     private final DatabaseType databaseType;
     
-    private final Map<String, List<Channel>> channelMap = new HashMap<>();
-    
-    private SynchronizedFuture synchronizedFuture;
-    
+    @Getter
+    @Setter
     private int currentSequenceId;
     
+    @Getter
+    @Setter
     private int columnCount;
     
     private MergedResult mergedResult;
@@ -109,17 +102,11 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     private CommandResponsePackets executeForMasterSlave() throws InterruptedException, ExecutionException, TimeoutException {
         String dataSourceName = new MasterSlaveRouter(((MasterSlaveSchema) logicSchema).getMasterSlaveRule(),
                 GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.SQL_SHOW)).route(sql).iterator().next();
-        synchronizedFuture = new SynchronizedFuture(1);
-        FutureRegistry.getInstance().put(connectionId, synchronizedFuture);
-        executeSQL(dataSourceName, sql);
-        List<QueryResult> queryResults = synchronizedFuture.get(
-                GLOBAL_REGISTRY.getShardingProperties().<Long>getValue(ShardingPropertiesConstant.PROXY_BACKEND_CONNECTION_TIMEOUT_SECONDS), TimeUnit.SECONDS);
-        FutureRegistry.getInstance().delete(connectionId);
-        List<CommandResponsePackets> packets = new LinkedList<>();
-        for (QueryResult each : queryResults) {
-            packets.add(((MySQLQueryResult) each).getCommandResponsePackets());
-        }
-        return merge(new SQLJudgeEngine(sql).judge(), packets, queryResults);
+        SQLStatement sqlStatement = new SQLJudgeEngine(sql).judge();
+        QueryResultCollector queryResultCollector = new QueryResultCollector(ChannelRegistry.LOCAL_FRONTEND_CHANNEL.get().id().asLongText(),
+                sqlStatement, 1, true, this, ChannelRegistry.COMMAND_PACKET_ID.get());
+        executeSQL(dataSourceName, sql, queryResultCollector);
+        return null;
     }
     
     private CommandResponsePackets executeForSharding() throws InterruptedException, ExecutionException, TimeoutException, SQLException {
@@ -130,45 +117,42 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
         if (routeResult.getRouteUnits().isEmpty()) {
             return new CommandResponsePackets(new OKPacket(1));
         }
-        synchronizedFuture = new SynchronizedFuture(routeResult.getRouteUnits().size());
-        FutureRegistry.getInstance().put(connectionId, synchronizedFuture);
+        QueryResultCollector queryResultCollector = new QueryResultCollector(ChannelRegistry.LOCAL_FRONTEND_CHANNEL.get().id().asLongText(),
+                routeResult.getSqlStatement(), routeResult.getRouteUnits().size(),
+                false, this, ChannelRegistry.COMMAND_PACKET_ID.get());
         for (RouteUnit each : routeResult.getRouteUnits()) {
-            executeSQL(each.getDataSourceName(), each.getSqlUnit().getSql());
+            executeSQL(each.getDataSourceName(), each.getSqlUnit().getSql(), queryResultCollector);
         }
-        List<QueryResult> queryResults = synchronizedFuture.get(
-                GLOBAL_REGISTRY.getShardingProperties().<Long>getValue(ShardingPropertiesConstant.PROXY_BACKEND_CONNECTION_TIMEOUT_SECONDS), TimeUnit.SECONDS);
-        FutureRegistry.getInstance().delete(connectionId);
-        List<CommandResponsePackets> packets = new ArrayList<>(queryResults.size());
-        for (QueryResult each : queryResults) {
-            MySQLQueryResult queryResult = (MySQLQueryResult) each;
-            if (0 == currentSequenceId) {
-                currentSequenceId = queryResult.getCurrentSequenceId();
-            }
-            if (0 == columnCount) {
-                columnCount = queryResult.getColumnCount();
-            }
-            packets.add(queryResult.getCommandResponsePackets());
-        }
-        SQLStatement sqlStatement = routeResult.getSqlStatement();
-        CommandResponsePackets result = merge(sqlStatement, packets, queryResults);
-        if (SQLType.DDL == sqlStatement.getType() && !sqlStatement.getTables().isEmpty()) {
-            refreshTableMetaData(sqlStatement.getTables().getSingleTableName());
-        }
-        return result;
+        return null;
     }
     
-    private void executeSQL(final String dataSourceName, final String sql) throws InterruptedException, ExecutionException, TimeoutException {
-        if (!channelMap.containsKey(dataSourceName)) {
-            channelMap.put(dataSourceName, new ArrayList<Channel>());
+    private void executeSQL(final String dataSourceName, final String sql, final QueryResultCollector queryResultCollector) {
+        if (queryResultCollector.isBackendChannelExhausted()) {
+            return;
         }
-        SimpleChannelPool pool = CLIENT_MANAGER.getBackendNettyClient(logicSchema.getName()).getPoolMap().get(dataSourceName);
-        Channel channel = pool.acquire().get(GLOBAL_REGISTRY.getShardingProperties().<Long>getValue(ShardingPropertiesConstant.PROXY_BACKEND_CONNECTION_TIMEOUT_SECONDS), TimeUnit.SECONDS);
-        channelMap.get(dataSourceName).add(channel);
-        ChannelRegistry.getInstance().putConnectionId(channel.id().asShortText(), connectionId);
-        channel.writeAndFlush(new ComQueryPacket(sequenceId, sql));
+        Channel frontendChannel = ChannelRegistry.LOCAL_FRONTEND_CHANNEL.get();
+        Channel backendChannel = CLIENT_MANAGER.getBackendNettyClient(logicSchema.getName()).getEventLoopChannelPoolMap().get(frontendChannel.eventLoop())
+                .get(dataSourceName).acquire().getNow();
+        if (backendChannel == null) {
+            queryResultCollector.setBackendChannelExhausted(true);
+            frontendChannel.writeAndFlush(new ErrPacket(++currentSequenceId, ServerErrorCode.ER_EXHAUSTION_BACKEND_CHANNEL_ERROR));
+            return;
+        }
+        String backendChannelLongTextId = ChannelUtils.getLongTextId(backendChannel);
+        ChannelRegistry.BACKEND_CHANNEL_QUERY_RESULT_COLLECTOR.put(backendChannelLongTextId, queryResultCollector);
+        ChannelRegistry.BACKEND_CHANNEL_DATABASE_NAME.put(backendChannelLongTextId, dataSourceName);
+        backendChannel.writeAndFlush(new ComQueryPacket(sequenceId, sql));
     }
     
-    private CommandResponsePackets merge(final SQLStatement sqlStatement, final List<CommandResponsePackets> packets, final List<QueryResult> queryResults) {
+    /**
+     * Merge result set.
+     *
+     * @param sqlStatement SQL statement
+     * @param packets the command response packets
+     * @param queryResults the query result list from all databases
+     * @return the merged command response packet
+     */
+    public CommandResponsePackets merge(final SQLStatement sqlStatement, final List<CommandResponsePackets> packets, final List<QueryResult> queryResults) {
         CommandResponsePackets headPackets = new CommandResponsePackets();
         for (CommandResponsePackets each : packets) {
             headPackets.getPackets().add(each.getHeadPacket());
@@ -214,10 +198,17 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     
     // TODO :jiaqi use sql packet to refresh meta data
     // TODO refresh table meta data by SQL parse result
-    private void refreshTableMetaData(final String logicTableName) throws SQLException {
+    
+    /**
+     * Refresh table metadata.
+     *
+     * @param logicTableName logic table name
+     * @throws SQLException sql exception be threw by the method
+     */
+    public void refreshTableMetaData(final String logicTableName) throws SQLException {
         TableMetaDataLoader tableMetaDataLoader = new TableMetaDataLoader(
                 logicSchema.getMetaData().getDataSource(), BackendExecutorContext.getInstance().getExecuteEngine(), new ProxyTableMetaDataConnectionManager(
-                        logicSchema.getBackendDataSource()), GLOBAL_REGISTRY.getShardingProperties().<Integer>getValue(ShardingPropertiesConstant.MAX_CONNECTIONS_SIZE_PER_QUERY));
+                logicSchema.getBackendDataSource()), GLOBAL_REGISTRY.getShardingProperties().<Integer>getValue(ShardingPropertiesConstant.MAX_CONNECTIONS_SIZE_PER_QUERY));
         logicSchema.getMetaData().getTable().put(logicTableName, tableMetaDataLoader.load(logicTableName, ((ShardingSchema) logicSchema).getShardingRule()));
     }
     
@@ -240,10 +231,6 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     }
     
     private void channelRelease() {
-        for (Entry<String, List<Channel>> entry : channelMap.entrySet()) {
-            for (Channel each : entry.getValue()) {
-                CLIENT_MANAGER.getBackendNettyClient(logicSchema.getName()).getPoolMap().get(entry.getKey()).release(each);
-            }
-        }
+    
     }
 }

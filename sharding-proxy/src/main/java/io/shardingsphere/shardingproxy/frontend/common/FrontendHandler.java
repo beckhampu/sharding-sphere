@@ -22,32 +22,43 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.shardingsphere.shardingproxy.backend.jdbc.connection.BackendConnection;
 import io.shardingsphere.shardingproxy.frontend.common.executor.ChannelThreadExecutorGroup;
+import io.shardingsphere.shardingproxy.runtime.ChannelRegistry;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
+import io.shardingsphere.shardingproxy.util.ChannelUtils;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Frontend handler.
- * 
- * @author zhangliang 
+ *
+ * @author zhangliang
  */
+@Slf4j
 public abstract class FrontendHandler extends ChannelInboundHandlerAdapter {
     
     private volatile boolean authorized;
     
     @Getter
     private volatile BackendConnection backendConnection = new BackendConnection(GlobalRegistry.getInstance().getTransactionType());
-
+    
     @Getter
     @Setter
     private volatile String currentSchema;
-
+    
     @Override
     public final void channelActive(final ChannelHandlerContext context) {
         backendConnection.setContext(context);
         ChannelThreadExecutorGroup.getInstance().register(context.channel().id());
         handshake(context);
+        ChannelRegistry.FRONTEND_CHANNEL.put(ChannelUtils.getLongTextId(context.channel()), context.channel());
+    }
+    
+    @Override
+    public final void exceptionCaught(final ChannelHandlerContext ctx, final Throwable cause) {
+        log.error("error occurs", cause);
+        ctx.close();
     }
     
     protected abstract void handshake(ChannelHandlerContext context);
@@ -72,5 +83,9 @@ public abstract class FrontendHandler extends ChannelInboundHandlerAdapter {
         context.fireChannelInactive();
         backendConnection.close(true);
         ChannelThreadExecutorGroup.getInstance().unregister(context.channel().id());
+        String longTextId = ChannelUtils.getLongTextId(context.channel());
+        ChannelRegistry.FRONTEND_CHANNEL_COMMAND_EXECUTOR.remove(longTextId);
+        ChannelRegistry.FRONTEND_CHANNEL_COMMAND_PACKET.remove(longTextId);
+        ChannelRegistry.FRONTEND_CHANNEL.remove(longTextId);
     }
 }

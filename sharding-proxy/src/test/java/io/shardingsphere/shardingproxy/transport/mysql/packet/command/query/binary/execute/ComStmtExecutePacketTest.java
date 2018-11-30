@@ -19,9 +19,12 @@ package io.shardingsphere.shardingproxy.transport.mysql.packet.command.query.bin
 
 import com.google.common.base.Optional;
 import io.shardingsphere.core.constant.ShardingConstant;
+import io.shardingsphere.core.constant.properties.ShardingProperties;
+import io.shardingsphere.core.constant.properties.ShardingPropertiesConstant;
 import io.shardingsphere.shardingproxy.backend.BackendHandler;
 import io.shardingsphere.shardingproxy.backend.ResultPacket;
 import io.shardingsphere.shardingproxy.backend.jdbc.connection.BackendConnection;
+import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.transport.common.packet.DatabasePacket;
 import io.shardingsphere.shardingproxy.transport.mysql.constant.ColumnType;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.MySQLPacketPayload;
@@ -39,6 +42,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.Properties;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertFalse;
@@ -64,12 +68,21 @@ public final class ComStmtExecutePacketTest {
         BinaryStatementRegistryUtil.reset();
     }
     
+    @Before
+    public void setProxyBackendUesNio() throws ReflectiveOperationException {
+        Field field = GlobalRegistry.getInstance().getClass().getDeclaredField("shardingProperties");
+        field.setAccessible(true);
+        Properties props = new Properties();
+        props.setProperty(ShardingPropertiesConstant.PROXY_BACKEND_USE_NIO.getKey(), String.valueOf(false));
+        field.set(GlobalRegistry.getInstance(), new ShardingProperties(props));
+    }
+    
     @Test
     public void assertWrite() throws SQLException {
         BinaryStatementRegistry.getInstance().register("SELECT id FROM tbl WHERE id=?", 1);
         when(payload.readInt4()).thenReturn(1);
         when(payload.readInt1()).thenReturn(0, 1);
-        ComStmtExecutePacket actual = new ComStmtExecutePacket(1, 1000, ShardingConstant.LOGIC_SCHEMA_NAME, payload, backendConnection);
+        ComStmtExecutePacket actual = new ComStmtExecutePacket(1, ShardingConstant.LOGIC_SCHEMA_NAME, payload, backendConnection);
         assertThat(actual.getSequenceId(), is(1));
         actual.write(payload);
         verify(payload, times(2)).writeInt4(1);
@@ -88,7 +101,7 @@ public final class ComStmtExecutePacketTest {
         when(backendHandler.execute()).thenReturn(expectedCommandResponsePackets);
         when(backendHandler.next()).thenReturn(true, false);
         when(backendHandler.getResultValue()).thenReturn(new ResultPacket(2, Collections.<Object>singletonList(99999L), 1, Collections.singletonList(ColumnType.MYSQL_TYPE_LONG)));
-        ComStmtExecutePacket packet = new ComStmtExecutePacket(1, 1000, ShardingConstant.LOGIC_SCHEMA_NAME, payload, backendConnection);
+        ComStmtExecutePacket packet = new ComStmtExecutePacket(1, ShardingConstant.LOGIC_SCHEMA_NAME, payload, backendConnection);
         setBackendHandler(packet, backendHandler);
         Optional<CommandResponsePackets> actualCommandResponsePackets = packet.execute();
         assertTrue(actualCommandResponsePackets.isPresent());

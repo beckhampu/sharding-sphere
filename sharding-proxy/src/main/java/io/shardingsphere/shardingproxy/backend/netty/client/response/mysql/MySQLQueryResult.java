@@ -67,6 +67,12 @@ public final class MySQLQueryResult implements QueryResult {
     @Getter
     private boolean columnFinished;
     
+    @Getter
+    private boolean rowFinished;
+    
+    @Getter
+    private boolean genericFinished;
+    
     public MySQLQueryResult() {
         commandResponsePackets = new CommandResponsePackets();
         columnCount = 0;
@@ -94,6 +100,7 @@ public final class MySQLQueryResult implements QueryResult {
      */
     public void setGenericResponse(final MySQLPacket mysqlPacket) {
         commandResponsePackets.getPackets().add(mysqlPacket);
+        genericFinished = true;
     }
     
     /**
@@ -143,6 +150,7 @@ public final class MySQLQueryResult implements QueryResult {
      */
     public void setRowFinished(final EofPacket eofPacket) {
         put(eofPacket);
+        rowFinished = true;
     }
     
     private void put(final MySQLPacket mysqlPacket) {
@@ -155,14 +163,9 @@ public final class MySQLQueryResult implements QueryResult {
     
     @Override
     public boolean next() {
-        try {
-            MySQLPacket mysqlPacket = resultSet.take();
-            currentRow = (mysqlPacket instanceof TextResultSetRowPacket) ? (TextResultSetRowPacket) mysqlPacket : null;
-            return null != currentRow;
-        } catch (final InterruptedException ex) {
-            log.error(ex.getMessage(), ex);
-        }
-        return false;
+        MySQLPacket mysqlPacket = resultSet.poll();
+        currentRow = (mysqlPacket instanceof TextResultSetRowPacket) ? (TextResultSetRowPacket) mysqlPacket : null;
+        return null != currentRow;
     }
     
     @Override
