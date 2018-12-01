@@ -17,6 +17,7 @@
 
 package io.shardingsphere.orchestration.internal.config.event;
 
+import io.shardingsphere.orchestration.internal.listener.ShardingOrchestrationEvent;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +30,7 @@ import java.util.Properties;
  */
 @RequiredArgsConstructor
 @Getter
-public final class PropertiesChangedEvent {
+public final class PropertiesChangedEvent implements ShardingOrchestrationEvent {
     
     private final Properties props;
 }

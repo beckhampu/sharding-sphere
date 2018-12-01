@@ -17,8 +17,8 @@
 
 package io.shardingsphere.orchestration.internal.listener;
 
-import io.shardingsphere.orchestration.internal.config.listener.ConfigurationOrchestrationListenerManager;
-import io.shardingsphere.orchestration.internal.state.listener.StateOrchestrationListenerManager;
+import io.shardingsphere.orchestration.internal.config.listener.ConfigurationChangedListenerManager;
+import io.shardingsphere.orchestration.internal.state.listener.StateChangedListenerManager;
 import io.shardingsphere.orchestration.reg.api.RegistryCenter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,23 +37,23 @@ public final class OrchestrationListenerManagerTest {
     private RegistryCenter regCenter;
     
     @Mock
-    private ConfigurationOrchestrationListenerManager configOrchestrationListenerManager;
+    private ConfigurationChangedListenerManager configurationChangedListenerManager;
     
     @Mock
-    private StateOrchestrationListenerManager stateOrchestrationListenerManager;
+    private StateChangedListenerManager stateChangedListenerManager;
     
     @Test
     public void assertInitListeners() throws ReflectiveOperationException {
-        OrchestrationListenerManager actual = new OrchestrationListenerManager("test", regCenter, Collections.<String>emptyList());
-        setField(actual, "configOrchestrationListenerManager", configOrchestrationListenerManager);
-        setField(actual, "stateOrchestrationListenerManager", stateOrchestrationListenerManager);
+        ShardingOrchestrationListenerManager actual = new ShardingOrchestrationListenerManager("test", regCenter, Collections.<String>emptyList());
+        setField(actual, "configurationChangedListenerManager", configurationChangedListenerManager);
+        setField(actual, "stateChangedListenerManager", stateChangedListenerManager);
         actual.initListeners();
-        verify(configOrchestrationListenerManager).initListeners();
-        verify(stateOrchestrationListenerManager).initListeners();
+        verify(configurationChangedListenerManager).initListeners();
+        verify(stateChangedListenerManager).initListeners();
     }
     
     private void setField(final Object target, final String fieldName, final Object fieldValue) throws ReflectiveOperationException {
-        Field field = OrchestrationListenerManager.class.getDeclaredField(fieldName);
+        Field field = ShardingOrchestrationListenerManager.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, fieldValue);
     }
