@@ -27,10 +27,10 @@ import io.shardingsphere.core.metadata.ShardingMetaData;
 import io.shardingsphere.core.rule.DataSourceParameter;
 import io.shardingsphere.core.rule.MasterSlaveRule;
 import io.shardingsphere.core.rule.ShardingRule;
-import io.shardingsphere.orchestration.internal.config.event.MasterSlaveRuleChangedEvent;
+import io.shardingsphere.orchestration.internal.registry.config.event.MasterSlaveRuleChangedEvent;
+import io.shardingsphere.orchestration.internal.registry.state.event.DisabledStateChangedEvent;
+import io.shardingsphere.orchestration.internal.registry.state.schema.OrchestrationShardingSchema;
 import io.shardingsphere.orchestration.internal.rule.OrchestrationMasterSlaveRule;
-import io.shardingsphere.orchestration.internal.state.event.DisabledStateChangedEvent;
-import io.shardingsphere.orchestration.internal.state.schema.OrchestrationShardingSchemaGroup;
 import io.shardingsphere.shardingproxy.backend.BackendExecutorContext;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.runtime.metadata.ProxyTableMetaDataConnectionManager;
@@ -69,14 +69,14 @@ public final class MasterSlaveSchema extends LogicSchema {
     /**
      * Renew master-slave rule.
      *
-     * @param masterSlaveEvent master-slave event.
+     * @param masterSlaveRuleChangedEvent master-slave rule changed event.
      */
     @Subscribe
-    public void renew(final MasterSlaveRuleChangedEvent masterSlaveEvent) {
-        if (!getName().equals(masterSlaveEvent.getShardingSchemaName())) {
+    public synchronized void renew(final MasterSlaveRuleChangedEvent masterSlaveRuleChangedEvent) {
+        if (!getName().equals(masterSlaveRuleChangedEvent.getShardingSchemaName())) {
             return;
         }
-        masterSlaveRule = new OrchestrationMasterSlaveRule(masterSlaveEvent.getMasterSlaveRuleConfig());
+        masterSlaveRule = new OrchestrationMasterSlaveRule(masterSlaveRuleChangedEvent.getMasterSlaveRuleConfiguration());
     }
     
     /**
@@ -85,9 +85,12 @@ public final class MasterSlaveSchema extends LogicSchema {
      * @param disabledStateChangedEvent disabled state changed event
      */
     @Subscribe
-    public void renew(final DisabledStateChangedEvent disabledStateChangedEvent) {
-        OrchestrationShardingSchemaGroup orchestrationShardingSchemaGroup = new OrchestrationShardingSchemaGroup();
-        orchestrationShardingSchemaGroup.put(ShardingConstant.LOGIC_SCHEMA_NAME, disabledStateChangedEvent.getDisabledGroup().getDataSourceNames(getName()));
-        ((OrchestrationMasterSlaveRule) masterSlaveRule).renew(new DisabledStateChangedEvent(orchestrationShardingSchemaGroup));
+    public synchronized void renew(final DisabledStateChangedEvent disabledStateChangedEvent) {
+        OrchestrationShardingSchema shardingSchema = disabledStateChangedEvent.getShardingSchema();
+        if (!getName().equals(shardingSchema.getSchemaName())) {
+            return;
+        }
+        ((OrchestrationMasterSlaveRule) masterSlaveRule).renew(
+                new DisabledStateChangedEvent(new OrchestrationShardingSchema(ShardingConstant.LOGIC_SCHEMA_NAME, shardingSchema.getDataSourceName()), disabledStateChangedEvent.isDisabled()));
     }
 }
