@@ -17,18 +17,12 @@
 
 package io.shardingsphere.orchestration.internal.rule;
 
-import com.google.common.eventbus.Subscribe;
 import io.shardingsphere.api.config.MasterSlaveRuleConfiguration;
-import io.shardingsphere.core.constant.ShardingConstant;
 import io.shardingsphere.core.rule.MasterSlaveRule;
-import io.shardingsphere.orchestration.internal.eventbus.ShardingOrchestrationEventBus;
-import io.shardingsphere.orchestration.internal.registry.state.event.DisabledStateChangedEvent;
-import io.shardingsphere.orchestration.internal.registry.state.schema.OrchestrationShardingSchema;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Set;
 
 /**
  * Orchestration master slave rule.
@@ -37,41 +31,34 @@ import java.util.Set;
  */
 public final class OrchestrationMasterSlaveRule extends MasterSlaveRule {
     
-    private final Set<String> disabledDataSourceNames = new LinkedHashSet<>();
+    private final Collection<String> disabledDataSourceNames = new HashSet<>();
     
     public OrchestrationMasterSlaveRule(final MasterSlaveRuleConfiguration config) {
         super(config);
-        ShardingOrchestrationEventBus.getInstance().register(this);
     }
     
     /**
      * Get slave data source names.
      *
-     * @return available slave data source name
+     * @return available slave data source names
      */
     @Override
     public Collection<String> getSlaveDataSourceNames() {
-        Collection<String> result = new LinkedList<>(super.getSlaveDataSourceNames());
-        for (String each : disabledDataSourceNames) {
-            result.remove(each);
+        if (disabledDataSourceNames.isEmpty()) {
+            return super.getSlaveDataSourceNames();
         }
+        Collection<String> result = new LinkedList<>(super.getSlaveDataSourceNames());
+        result.removeAll(disabledDataSourceNames);
         return result;
     }
     
     /**
-     * Renew disable data source names.
-     *
-     * @param disabledStateChangedEvent disabled state changed event
+     * Update disabled data source names.
+     * 
+     * @param dataSourceName data source name
+     * @param isDisabled is disabled
      */
-    @Subscribe
-    public synchronized void renew(final DisabledStateChangedEvent disabledStateChangedEvent) {
-        OrchestrationShardingSchema shardingSchema = disabledStateChangedEvent.getShardingSchema();
-        if (ShardingConstant.LOGIC_SCHEMA_NAME.equals(shardingSchema.getSchemaName())) {
-            reviseDisabledDataSourceNames(disabledStateChangedEvent.isDisabled(), shardingSchema.getDataSourceName());
-        }
-    }
-    
-    private void reviseDisabledDataSourceNames(final boolean isDisabled, final String dataSourceName) {
+    public void updateDisabledDataSourceNames(final String dataSourceName, final boolean isDisabled) {
         if (isDisabled) {
             disabledDataSourceNames.add(dataSourceName);
         } else {

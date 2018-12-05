@@ -20,10 +20,11 @@ package io.shardingsphere.core.parsing.antlr.extractor.statement.engine.ddl;
 import io.shardingsphere.core.metadata.table.ColumnMetaData;
 import io.shardingsphere.core.metadata.table.ShardingTableMetaData;
 import io.shardingsphere.core.metadata.table.TableMetaData;
-import io.shardingsphere.core.parsing.antlr.extractor.segment.engine.ColumnDefinitionExtractor;
+import io.shardingsphere.core.parsing.antlr.extractor.segment.engine.ColumnDefinitionsExtractor;
 import io.shardingsphere.core.parsing.antlr.extractor.segment.engine.IndexNamesExtractor;
 import io.shardingsphere.core.parsing.antlr.extractor.segment.engine.PrimaryKeyForCreateTableExtractor;
 import io.shardingsphere.core.parsing.antlr.extractor.segment.engine.TableNamesExtractor;
+import io.shardingsphere.core.parsing.antlr.extractor.statement.engine.AbstractSQLSegmentsExtractor;
 import io.shardingsphere.core.parsing.parser.sql.SQLStatement;
 import io.shardingsphere.core.parsing.parser.sql.ddl.create.table.CreateTableStatement;
 
@@ -36,22 +37,17 @@ import java.util.List;
  * 
  * @author duhongjun
  */
-public final class CreateTableExtractor extends DDLStatementExtractor {
+public final class CreateTableExtractor extends AbstractSQLSegmentsExtractor {
     
     public CreateTableExtractor() {
         addSQLSegmentExtractor(new TableNamesExtractor());
-        addSQLSegmentExtractor(new ColumnDefinitionExtractor());
+        addSQLSegmentExtractor(new ColumnDefinitionsExtractor());
         addSQLSegmentExtractor(new IndexNamesExtractor());
         addSQLSegmentExtractor(new PrimaryKeyForCreateTableExtractor());
     }
     
     @Override
-    protected SQLStatement createStatement() {
-        return new CreateTableStatement();
-    }
-    
-    @Override
-    protected void postExtract(final SQLStatement sqlStatement, final ShardingTableMetaData shardingTableMetaData) {
+    public void postExtract(final SQLStatement sqlStatement, final ShardingTableMetaData shardingTableMetaData) {
         CreateTableStatement createStatement = (CreateTableStatement) sqlStatement;
         Collection<ColumnMetaData> newColumnMetaDataList = new LinkedList<>();
         int position = 0;
