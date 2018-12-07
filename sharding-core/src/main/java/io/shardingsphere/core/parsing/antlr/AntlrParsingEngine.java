@@ -19,63 +19,47 @@ package io.shardingsphere.core.parsing.antlr;
 
 import io.shardingsphere.core.constant.DatabaseType;
 import io.shardingsphere.core.metadata.table.ShardingTableMetaData;
-import io.shardingsphere.core.parsing.antlr.ast.SQLASTParserFactory;
-import io.shardingsphere.core.parsing.antlr.extractor.statement.SQLSegmentsExtractor;
-import io.shardingsphere.core.parsing.antlr.extractor.statement.SQLSegmentsExtractorFactory;
-import io.shardingsphere.core.parsing.antlr.extractor.statement.SQLStatementType;
+import io.shardingsphere.core.parsing.antlr.extractor.SQLSegmentsExtractorEngine;
 import io.shardingsphere.core.parsing.antlr.filler.SQLStatementFillerEngine;
+import io.shardingsphere.core.parsing.antlr.optimizer.SQLStatementOptimizerEngine;
+import io.shardingsphere.core.parsing.antlr.parser.SQLAST;
+import io.shardingsphere.core.parsing.antlr.parser.SQLParserEngine;
 import io.shardingsphere.core.parsing.antlr.sql.segment.SQLSegment;
-import io.shardingsphere.core.parsing.parser.exception.SQLParsingUnsupportedException;
 import io.shardingsphere.core.parsing.parser.sql.SQLParser;
 import io.shardingsphere.core.parsing.parser.sql.SQLStatement;
 import io.shardingsphere.core.rule.ShardingRule;
-import lombok.AllArgsConstructor;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ErrorNode;
-import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.util.Collection;
 
 /**
- * Parsing engine for Antlr.
+ * SQL parsing engine.
  *
  * @author duhongjun
+ * @author zhangliang
  */
-@AllArgsConstructor
 public final class AntlrParsingEngine implements SQLParser {
     
-    private DatabaseType databaseType;
+    private final SQLParserEngine parserEngine;
     
-    private String sql;
+    private final SQLSegmentsExtractorEngine extractorEngine;
     
-    private ShardingRule shardingRule;
+    private final SQLStatementFillerEngine fillerEngine; 
     
-    private ShardingTableMetaData shardingTableMetaData;
+    private final SQLStatementOptimizerEngine optimizerEngine;
+    
+    public AntlrParsingEngine(final DatabaseType databaseType, final String sql, final ShardingRule shardingRule, final ShardingTableMetaData shardingTableMetaData) {
+        parserEngine = new SQLParserEngine(databaseType, sql);
+        extractorEngine = new SQLSegmentsExtractorEngine(databaseType);
+        fillerEngine = new SQLStatementFillerEngine(sql, shardingRule, shardingTableMetaData);
+        optimizerEngine = new SQLStatementOptimizerEngine(databaseType, shardingTableMetaData);
+    }
     
     @Override
     public SQLStatement parse() {
-        ParseTree rootNode = parseAST();
-        SQLStatementType sqlStatementType = SQLStatementType.nameOf(rootNode.getClass().getSimpleName());
-        SQLSegmentsExtractor extractor = getExtractor(sqlStatementType);
-        Collection<SQLSegment> sqlSegments = extractor.extract((ParserRuleContext) rootNode, shardingRule, shardingTableMetaData);
-        SQLStatement result = new SQLStatementFillerEngine(databaseType).fill(sqlSegments, sql, sqlStatementType, shardingRule, shardingTableMetaData);
-        extractor.postExtract(result, shardingTableMetaData);
-        return result;
-    }
-    
-    private ParseTree parseAST() {
-        ParseTree result = SQLASTParserFactory.newInstance(databaseType, sql).execute().getChild(0);
-        if (result instanceof ErrorNode) {
-            throw new SQLParsingUnsupportedException(String.format("Unsupported SQL of `%s`", sql));
-        }
-        return result;
-    }
-    
-    private SQLSegmentsExtractor getExtractor(final SQLStatementType sqlStatementType) {
-        SQLSegmentsExtractor result = SQLSegmentsExtractorFactory.getInstance(databaseType, sqlStatementType);
-        if (null == result) {
-            throw new SQLParsingUnsupportedException(String.format("Unsupported SQL statement of `%s`", sqlStatementType));
-        }
+        SQLAST ast = parserEngine.parse();
+        Collection<SQLSegment> sqlSegments = extractorEngine.extract(ast);
+        SQLStatement result = fillerEngine.fill(sqlSegments, ast.getType());
+        optimizerEngine.optimize(ast.getType(), result);
         return result;
     }
 }

@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
  */
 @RequiredArgsConstructor
 @Getter
-public class FunctionExpressionSegment extends ExpressionSegment {
+public final class FunctionExpressionSegment implements ExpressionSegment {
     
     private final String name;
     
@@ -38,4 +38,8 @@ public class FunctionExpressionSegment extends ExpressionSegment {
     private final int innerExpressionStartIndex;
     
     private final int innerExpressionEndIndex; 
+    
+    private final boolean hasDistinct;
+    
+    private final int dinstinctColumnNameStartPosition;
 }

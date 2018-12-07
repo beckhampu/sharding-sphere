@@ -6,6 +6,14 @@ ID:
     (BQ_?[a-zA-Z_$][a-zA-Z0-9_$]* BQ_? DOT)? (BQ_?[a-zA-Z_$][a-zA-Z0-9_$]* BQ_?)
     ;
     
+BLOCK_COMMENT
+    : SLASH ASTERISK .*? ASTERISK SLASH -> channel(HIDDEN)
+    ;
+    
+SL_COMMENT
+    : MINUS MINUS ~[\r\n]* -> channel(HIDDEN)
+    ;
+    
 schemaName
     : ID
     ;
@@ -314,23 +322,32 @@ simpleExpr
     | UNARY_BIT_COMPLEMENT simpleExpr
     | NOT_ simpleExpr
     | BINARY simpleExpr
-    | LP_ expr RP_
-    | ROW LP_ simpleExpr( COMMA simpleExpr)* RP_
+    | exprsWithParen
+    | ROW exprsWithParen
     | subquery
     | EXISTS subquery
     // | (identifier expr)
     //| match_expr
     | caseExpress
-    // | interval_expr
-    |privateExprOfDb
+    | intervalExpr
+    | privateExprOfDb
     ;
     
 functionCall
-    : ID LP_ bitExprs? RP_
+    : ID LP_ distinct? (exprs | ASTERISK)? RP_
     ;
     
-caseExpress:
+distinct
+    : DISTINCT
     ;
+    
+intervalExpr
+    : matchNone
+    ;
+       
+caseExpress
+    : matchNone
+    ; 
     
 privateExprOfDb
     : matchNone
