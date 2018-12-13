@@ -18,14 +18,10 @@
 package io.shardingsphere.core.parsing.antlr.extractor;
 
 import com.google.common.base.Optional;
-import io.shardingsphere.core.constant.DatabaseType;
-import io.shardingsphere.core.parsing.antlr.extractor.registry.SQLSegmentsExtractorFactory;
 import io.shardingsphere.core.parsing.antlr.parser.SQLAST;
 import io.shardingsphere.core.parsing.antlr.sql.segment.SQLSegment;
-import lombok.RequiredArgsConstructor;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
 
 /**
@@ -33,10 +29,7 @@ import java.util.LinkedList;
  * 
  * @author zhangliang
  */
-@RequiredArgsConstructor
 public final class SQLSegmentsExtractorEngine {
-    
-    private final DatabaseType databaseType;
     
     /** 
      * Extract SQL segments.
@@ -45,12 +38,8 @@ public final class SQLSegmentsExtractorEngine {
      * @return SQL segments
      */
     public Collection<SQLSegment> extract(final SQLAST ast) {
-        Optional<SQLStatementExtractor> extractor = SQLSegmentsExtractorFactory.getInstance(databaseType, ast.getType());
-        if (!extractor.isPresent()) {
-            return Collections.emptyList();
-        }
         Collection<SQLSegment> result = new LinkedList<>();
-        for (SQLSegmentExtractor each : extractor.get().getExtractors()) {
+        for (SQLSegmentExtractor each : ast.getRule().getExtractors()) {
             if (each instanceof OptionalSQLSegmentExtractor) {
                 Optional<? extends SQLSegment> sqlSegment = ((OptionalSQLSegmentExtractor) each).extract(ast.getParserRuleContext());
                 if (sqlSegment.isPresent()) {
