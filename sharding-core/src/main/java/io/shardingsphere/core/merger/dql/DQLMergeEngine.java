@@ -58,21 +58,19 @@ public final class DQLMergeEngine implements MergeEngine {
     
     public DQLMergeEngine(final List<QueryResult> queryResults, final SelectStatement selectStatement) throws SQLException {
         this.selectStatement = selectStatement;
-        List<QueryResult> realQueryResult = getRealQueryResults(queryResults);
-        if (!realQueryResult.isEmpty()) {
-            this.queryResults = realQueryResult;
-        } else {
-            this.queryResults = queryResults;
-        }
+        this.queryResults = getRealQueryResults(queryResults);
         columnLabelIndexMap = getColumnLabelIndexMap(this.queryResults.get(0));
     }
     
     private List<QueryResult> getRealQueryResults(final List<QueryResult> queryResults) {
+        if (1 == queryResults.size()) {
+            return queryResults;
+        }
         if (!selectStatement.getAggregationDistinctSelectItems().isEmpty()) {
             return getDividedQueryResults(new AggregationDistinctQueryResult(queryResults, selectStatement));
         }
-        if (!selectStatement.getDistinctSelectItems().isEmpty()) {
-            return getDividedQueryResults(new DistinctQueryResult(queryResults, new ArrayList<>(selectStatement.getDistinctSelectItems().get(0).getDistinctColumnLabels())));
+        if (selectStatement.getDistinctSelectItem().isPresent()) {
+            return getDividedQueryResults(new DistinctQueryResult(queryResults, new ArrayList<>(selectStatement.getDistinctSelectItem().get().getDistinctColumnLabels())));
         }
         return queryResults;
     }
@@ -96,6 +94,9 @@ public final class DQLMergeEngine implements MergeEngine {
     
     @Override
     public MergedResult merge() throws SQLException {
+        if (queryResults.size() == 1) {
+            return new IteratorStreamMergedResult(queryResults);
+        }
         selectStatement.setIndexForItems(columnLabelIndexMap);
         return decorate(build());
     }

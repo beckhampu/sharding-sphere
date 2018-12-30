@@ -17,12 +17,11 @@
 
 package io.shardingsphere.shardingjdbc.jdbc.core.connection;
 
-import io.shardingsphere.core.constant.transaction.TransactionType;
-import io.shardingsphere.core.rule.MasterSlaveRule;
 import io.shardingsphere.shardingjdbc.jdbc.adapter.AbstractConnectionAdapter;
 import io.shardingsphere.shardingjdbc.jdbc.core.ShardingContext;
 import io.shardingsphere.shardingjdbc.jdbc.core.statement.ShardingPreparedStatement;
 import io.shardingsphere.shardingjdbc.jdbc.core.statement.ShardingStatement;
+import io.shardingsphere.transaction.api.TransactionType;
 import lombok.Getter;
 
 import javax.sql.DataSource;
@@ -31,7 +30,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -69,17 +67,8 @@ public final class ShardingConnection extends AbstractConnectionAdapter {
     }
     
     @Override
-    public DatabaseMetaData getMetaData() throws SQLException {
-        Collection<MasterSlaveRule> masterSlaveRules = shardingContext.getShardingRule().getMasterSlaveRules();
-        if (masterSlaveRules.isEmpty()) {
-            return getConnection(dataSourceMap.keySet().iterator().next()).getMetaData();
-        }
-        for (MasterSlaveRule each : masterSlaveRules) {
-            if (getDataSourceMap().containsKey(each.getMasterDataSourceName())) {
-                return getConnection(each.getMasterDataSourceName()).getMetaData();
-            }
-        }
-        throw new UnsupportedOperationException();
+    public DatabaseMetaData getMetaData() {
+        return shardingContext.getDatabaseMetaData();
     }
     
     @Override

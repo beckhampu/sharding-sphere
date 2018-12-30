@@ -3,7 +3,11 @@ grammar MySQLBase;
 import MySQLKeyword, Keyword, BaseRule, DataType, Symbol;
 
 alias
-    : ID | PASSWORD
+    : ID | PASSWORD | STRING
+    ;
+    
+tableName
+    : ID | ID DOT_ASTERISK | ASTERISK
     ;
     
 characterSet

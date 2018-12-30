@@ -17,7 +17,6 @@
 
 package io.shardingsphere.core.constant.properties;
 
-import io.shardingsphere.core.constant.transaction.TransactionType;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -93,7 +92,7 @@ public enum ShardingPropertiesConstant {
      * Sharding-Proxy will run with BASE transaction.
      * </p>
      */
-    PROXY_TRANSACTION_TYPE("proxy.transaction.type", TransactionType.LOCAL.name(), String.class),
+    PROXY_TRANSACTION_TYPE("proxy.transaction.type", "LOCAL", String.class),
     
     /**
      * Enable opentracing for Sharding-Proxy.
@@ -104,7 +103,9 @@ public enum ShardingPropertiesConstant {
     
     PROXY_BACKEND_MAX_CONNECTIONS("proxy.backend.max.connections", String.valueOf(8), int.class),
     
-    PROXY_BACKEND_CONNECTION_TIMEOUT_SECONDS("proxy.backend.connection.timeout.seconds", String.valueOf(60), int.class);
+    PROXY_BACKEND_CONNECTION_TIMEOUT_SECONDS("proxy.backend.connection.timeout.seconds", String.valueOf(60), int.class),
+    
+    CHECK_TABLE_METADATA_ENABLED("check.table.metadata.enabled", String.valueOf(Boolean.FALSE), boolean.class);
     
     private final String key;
     

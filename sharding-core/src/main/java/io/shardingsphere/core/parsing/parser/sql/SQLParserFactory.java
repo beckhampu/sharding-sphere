@@ -20,6 +20,7 @@ package io.shardingsphere.core.parsing.parser.sql;
 import io.shardingsphere.core.constant.DatabaseType;
 import io.shardingsphere.core.metadata.table.ShardingTableMetaData;
 import io.shardingsphere.core.parsing.antlr.AntlrParsingEngine;
+import io.shardingsphere.core.parsing.antlr.sql.statement.ddl.DDLStatement;
 import io.shardingsphere.core.parsing.lexer.LexerEngine;
 import io.shardingsphere.core.parsing.lexer.dialect.mysql.MySQLKeyword;
 import io.shardingsphere.core.parsing.lexer.token.DefaultKeyword;
@@ -39,7 +40,6 @@ import io.shardingsphere.core.parsing.parser.sql.dcl.drop.DropUserParserFactory;
 import io.shardingsphere.core.parsing.parser.sql.dcl.grant.GrantUserParserFactory;
 import io.shardingsphere.core.parsing.parser.sql.dcl.rename.RenameUserParserFactory;
 import io.shardingsphere.core.parsing.parser.sql.dcl.revoke.RevokeUserParserFactory;
-import io.shardingsphere.core.parsing.parser.sql.ddl.DDLStatement;
 import io.shardingsphere.core.parsing.parser.sql.dml.DMLStatement;
 import io.shardingsphere.core.parsing.parser.sql.dml.delete.DeleteParserFactory;
 import io.shardingsphere.core.parsing.parser.sql.dml.insert.InsertParserFactory;
@@ -91,7 +91,7 @@ public final class SQLParserFactory {
             return getDMLParser(dbType, tokenType, shardingRule, lexerEngine, shardingTableMetaData);
         }
         if (TCLStatement.isTCL(tokenType)) {
-            return getTCLParser(dbType, tokenType, lexerEngine);
+            return new AntlrParsingEngine(dbType, sql, shardingRule, shardingTableMetaData);
         }
         if (DALStatement.isDAL(tokenType)) {
             return getDALParser(dbType, (Keyword) tokenType, shardingRule, lexerEngine);
@@ -99,16 +99,13 @@ public final class SQLParserFactory {
         lexerEngine.nextToken();
         TokenType secondaryTokenType = lexerEngine.getCurrentToken().getType();
         if (DCLStatement.isDCL(tokenType, secondaryTokenType)) {
-            return getDCLParser(dbType, tokenType, shardingRule, lexerEngine);
+            return new AntlrParsingEngine(dbType, sql, shardingRule, shardingTableMetaData);
         }
         if (DDLStatement.isDDL(tokenType, secondaryTokenType)) {
             return new AntlrParsingEngine(dbType, sql, shardingRule, shardingTableMetaData);
         }
-        if (DCLStatement.isDCL(tokenType, secondaryTokenType)) {
-            return getDCLParser(dbType, tokenType, shardingRule, lexerEngine);
-        }
         if (TCLStatement.isTCLUnsafe(dbType, tokenType, lexerEngine)) {
-            return getTCLParser(dbType, tokenType, lexerEngine);
+            return new AntlrParsingEngine(dbType, sql, shardingRule, shardingTableMetaData);
         }
         if (DefaultKeyword.SET.equals(tokenType)) {
             return SetParserFactory.newInstance();

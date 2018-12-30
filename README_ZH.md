@@ -28,7 +28,7 @@ ShardingSphere定位为关系型数据库中间件，旨在充分合理地在分
 关系型数据库当今依然占有巨大市场，是各个公司核心业务的基石，未来也难于撼动，我们目前阶段更加关注在原有基础上的增量，而非颠覆。
 
 ShardingSphere目前已经进入[Apache孵化器](http://incubator.apache.org/projects/shardingsphere.html)，
-欢迎通过[shardingsphere的dev邮件列表](mailto:dev@shardingsphere.incubator.apache.org)与我们讨论。
+欢迎通过[shardingsphere的dev邮件列表](mailto:dev@shardingsphere.apache.org)与我们讨论。
 
 ![ShardingSphere Scope](http://shardingsphere.jd.com/document/current/img/shardingsphere-scope_cn.png)
 
@@ -84,7 +84,7 @@ Sharding-JDBC采用无中心化架构，适用于Java开发的高性能的轻量
 ShardingSphere是多接入端共同组成的生态圈。
 通过混合使用Sharding-JDBC和Sharding-Proxy，并采用同一注册中心统一配置分片策略，能够灵活的搭建适用于各种场景的应用系统，使得架构师更加自由的调整适合与当前业务的最佳系统架构。
 
-![ShardingSphere Hybird Architecture](http://shardingsphere.jd.com/document/current/img/shardingsphere-hybrid.png)
+![ShardingSphere Hybrid Architecture](http://shardingsphere.jd.com/document/current/img/shardingsphere-hybrid.png)
 
 ## 功能列表
 

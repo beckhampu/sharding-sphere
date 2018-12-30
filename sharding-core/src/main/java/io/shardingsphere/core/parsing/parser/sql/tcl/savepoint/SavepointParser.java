@@ -20,7 +20,7 @@ package io.shardingsphere.core.parsing.parser.sql.tcl.savepoint;
 import io.shardingsphere.core.parsing.parser.sql.SQLParser;
 
 /**
- * Savapoint parser.
+ * Savepoint parser.
  *
  * @author maxiaoguang
  */

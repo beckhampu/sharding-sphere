@@ -24,6 +24,7 @@ import io.shardingsphere.core.parsing.lexer.token.DefaultKeyword;
 import io.shardingsphere.core.parsing.lexer.token.Keyword;
 import io.shardingsphere.core.parsing.lexer.token.Symbol;
 import io.shardingsphere.core.parsing.parser.clause.expression.AliasExpressionParser;
+import io.shardingsphere.core.parsing.parser.constant.DerivedAlias;
 import io.shardingsphere.core.parsing.parser.context.selectitem.AggregationDistinctSelectItem;
 import io.shardingsphere.core.parsing.parser.context.selectitem.AggregationSelectItem;
 import io.shardingsphere.core.parsing.parser.context.selectitem.CommonSelectItem;
@@ -40,8 +41,10 @@ import lombok.Getter;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,9 +71,9 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
     
     /**
      * Parse select list.
-     * 
+     *
      * @param selectStatement select statement
-     * @param items select items
+     * @param items           select items
      */
     public void parse(final SelectStatement selectStatement, final List<SelectItem> items) {
         do {
@@ -115,8 +118,8 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
     
     private void reviseDistinctSelectItems(final SelectStatement selectStatement, final Collection<SelectItem> selectItems) {
         for (SelectItem each : selectItems) {
-            if (!(selectStatement.getDistinctSelectItems().isEmpty() || each instanceof StarSelectItem)) {
-                selectStatement.getDistinctSelectItems().get(0).getDistinctColumnNames().add(each.getAlias().isPresent() ? each.getAlias().get() : each.getExpression());
+            if (selectStatement.getDistinctSelectItem().isPresent() && !(each instanceof StarSelectItem)) {
+                selectStatement.getDistinctSelectItem().get().getDistinctColumnNames().add(each.getAlias().isPresent() ? each.getAlias().get() : each.getExpression());
             }
         }
     }
@@ -135,11 +138,12 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
         lexerEngine.nextToken();
         String distinctColumnName = lexerEngine.getCurrentToken().getLiterals();
         if (Symbol.STAR == lexerEngine.getCurrentToken().getType()) {
-            return new DistinctSelectItem(Collections.<String>emptyList(), aliasExpressionParser.parseSelectItemAlias());
+            return new DistinctSelectItem(Collections.<String>emptySet(), aliasExpressionParser.parseSelectItemAlias());
         }
         lexerEngine.nextToken();
-        distinctColumnName = SQLUtil.getExactlyValue(distinctColumnName + parseRestSelectItem(selectStatement));
-        return new DistinctSelectItem(Collections.singletonList(distinctColumnName), aliasExpressionParser.parseSelectItemAlias());
+        Set<String> distinctColumnNames = new LinkedHashSet<>();
+        distinctColumnNames.add(SQLUtil.getExactlyValue(distinctColumnName + parseRestSelectItem(selectStatement)));
+        return new DistinctSelectItem(distinctColumnNames, aliasExpressionParser.parseSelectItemAlias());
     }
     
     private boolean isStarSelectItem() {
@@ -149,13 +153,13 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
     private SelectItem parseStarSelectItem() {
         lexerEngine.nextToken();
         aliasExpressionParser.parseSelectItemAlias();
-        return new StarSelectItem(Optional.<String>absent());
+        return new StarSelectItem();
     }
     
     private SelectItem parseStarSelectItem(final String owner) {
         lexerEngine.nextToken();
         aliasExpressionParser.parseSelectItemAlias();
-        return new StarSelectItem(Optional.fromNullable(owner));
+        return new StarSelectItem(owner);
     }
     
     private SelectItem parseCommonOrStarSelectItem(final SelectStatement selectStatement) {
@@ -168,7 +172,7 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
             result.append(lexerEngine.skipParentheses(selectStatement));
         } else if (lexerEngine.equalAny(Symbol.DOT)) {
             String tableName = SQLUtil.getExactlyValue(literals);
-            if (shardingRule.tryFindTableRuleByLogicTable(tableName).isPresent() || shardingRule.isBroadcastTable(tableName) || shardingRule.findBindingTableRule(tableName).isPresent()) {
+            if (shardingRule.findTableRuleByLogicTable(tableName).isPresent() || shardingRule.isBroadcastTable(tableName) || shardingRule.findBindingTableRule(tableName).isPresent()) {
                 selectStatement.addSQLToken(new TableToken(position, 0, literals));
             }
             result.append(lexerEngine.getCurrentToken().getLiterals());
@@ -198,9 +202,16 @@ public abstract class SelectListClauseParser implements SQLClauseParser {
     }
     
     private SelectItem getAggregationDistinctSelectItem(final SelectStatement selectStatement, final AggregationType aggregationType, final int beginPosition, final String innerExpression) {
+        Optional<String> alias = aliasExpressionParser.parseSelectItemAlias();
+        Optional<String> autoAlias = Optional.absent();
+        if (!alias.isPresent()) {
+            autoAlias = Optional.of(DerivedAlias.AGGREGATION_DISTINCT_DERIVED.getDerivedAlias(selectStatement.getAggregationDistinctSelectItems().size()));
+            alias = autoAlias;
+        }
         AggregationDistinctSelectItem result = new AggregationDistinctSelectItem(
-                aggregationType, innerExpression, aliasExpressionParser.parseSelectItemAlias(), getDistinctColumnName(innerExpression));
-        selectStatement.getSQLTokens().add(new AggregationDistinctToken(beginPosition, SQLUtil.getExactlyValue(aggregationType.name() + innerExpression), result.getDistinctColumnName()));
+                aggregationType, innerExpression, alias, getDistinctColumnName(innerExpression));
+        
+        selectStatement.getSQLTokens().add(new AggregationDistinctToken(beginPosition, SQLUtil.getExactlyValue(aggregationType.name() + innerExpression), result.getDistinctColumnName(), autoAlias));
         return result;
     }
     
