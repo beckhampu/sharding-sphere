@@ -120,9 +120,8 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     }
     
     private CommandResponsePackets executeForSharding() throws InterruptedException, ExecutionException, TimeoutException {
-        StatementRoutingEngine routingEngine = new StatementRoutingEngine(
-                ((ShardingSchema) logicSchema).getShardingRule(), logicSchema.getMetaData().getTable(), databaseType,
-                GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.SQL_SHOW), logicSchema.getMetaData().getDataSource());
+        StatementRoutingEngine routingEngine = new StatementRoutingEngine(((ShardingSchema) logicSchema).getShardingRule(), 
+                logicSchema.getMetaData(), databaseType, GLOBAL_REGISTRY.getShardingProperties().<Boolean>getValue(ShardingPropertiesConstant.SQL_SHOW));
         SQLRouteResult routeResult = routingEngine.route(sql);
         if (routeResult.getRouteUnits().isEmpty()) {
             return new CommandResponsePackets(new OKPacket(1));
@@ -200,7 +199,8 @@ public final class NettyBackendHandler extends AbstractBackendHandler {
     
     private CommandResponsePackets mergeDQLorDAL(final SQLStatement sqlStatement, final List<CommandResponsePackets> packets, final List<QueryResult> queryResults) {
         try {
-            mergedResult = MergeEngineFactory.newInstance(((ShardingSchema) logicSchema).getShardingRule(), queryResults, sqlStatement, logicSchema.getMetaData().getTable()).merge();
+            mergedResult = MergeEngineFactory.newInstance(
+                    DatabaseType.MySQL, ((ShardingSchema) logicSchema).getShardingRule(), sqlStatement, logicSchema.getMetaData().getTable(), queryResults).merge();
         } catch (final SQLException ex) {
             return new CommandResponsePackets(new ErrPacket(1, ex));
         }
