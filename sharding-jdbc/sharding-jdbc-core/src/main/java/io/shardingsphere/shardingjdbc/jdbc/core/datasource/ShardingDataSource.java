@@ -67,11 +67,11 @@ public class ShardingDataSource extends AbstractDataSourceAdapter {
     
     @Override
     public final ShardingConnection getConnection() {
-        return new ShardingConnection(getShardingTransactionalDataSources().getDataSourceMap(), shardingContext, TransactionTypeHolder.get());
+        return new ShardingConnection(getDataSourceMap(), shardingContext, TransactionTypeHolder.get());
     }
     
     @Override
-    public final void close() {
+    public final void close() throws Exception {
         super.close();
         shardingContext.close();
     }

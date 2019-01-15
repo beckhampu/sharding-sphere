@@ -17,8 +17,8 @@
 
 package io.shardingsphere.core.keygen.fixture;
 
-import io.shardingsphere.core.keygen.DefaultKeyGenerator;
 import io.shardingsphere.core.keygen.TimeService;
+import io.shardingsphere.core.keygen.generator.impl.SnowflakeKeyGenerator;
 import lombok.RequiredArgsConstructor;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,7 +30,7 @@ public final class FixedTimeService extends TimeService {
     
     private final AtomicInteger invokedTimes = new AtomicInteger();
     
-    private long current = DefaultKeyGenerator.EPOCH;
+    private long current = SnowflakeKeyGenerator.EPOCH;
     
     @Override
     public long getCurrentMillis() {

@@ -18,9 +18,7 @@
 package io.shardingsphere.core.yaml.sharding;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import io.shardingsphere.api.config.rule.TableRuleConfiguration;
-import io.shardingsphere.core.keygen.KeyGeneratorFactory;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -44,9 +42,7 @@ public class YamlTableRuleConfiguration {
     
     private YamlShardingStrategyConfiguration tableStrategy;
     
-    private String keyGeneratorColumnName;
-    
-    private String keyGeneratorClassName;
+    private YamlKeyGeneratorConfiguration keyGenerator;
     
     private String logicIndex;
     
@@ -55,9 +51,7 @@ public class YamlTableRuleConfiguration {
         actualDataNodes = tableRuleConfiguration.getActualDataNodes();
         databaseStrategy = new YamlShardingStrategyConfiguration(tableRuleConfiguration.getDatabaseShardingStrategyConfig());
         tableStrategy = new YamlShardingStrategyConfiguration(tableRuleConfiguration.getTableShardingStrategyConfig());
-        keyGeneratorColumnName = tableRuleConfiguration.getKeyGeneratorColumnName();
-        keyGeneratorClassName = null == tableRuleConfiguration.getKeyGenerator()
-                ? null : tableRuleConfiguration.getKeyGenerator().getClass().getName();
+        keyGenerator = null == tableRuleConfiguration.getKeyGeneratorConfig() ? null : new YamlKeyGeneratorConfiguration(tableRuleConfiguration.getKeyGeneratorConfig());
     }
     
     /**
@@ -76,10 +70,10 @@ public class YamlTableRuleConfiguration {
         if (null != tableStrategy) {
             result.setTableShardingStrategyConfig(tableStrategy.build());
         }
-        if (!Strings.isNullOrEmpty(keyGeneratorClassName)) {
-            result.setKeyGenerator(KeyGeneratorFactory.newInstance(keyGeneratorClassName));
+        if (null != keyGenerator) {
+            result.setKeyGeneratorConfig(keyGenerator.getKeyGeneratorConfiguration());
+            result.setKeyGeneratorColumnName(keyGenerator.getColumn());
         }
-        result.setKeyGeneratorColumnName(keyGeneratorColumnName);
         result.setLogicIndex(logicIndex);
         return result;
     }

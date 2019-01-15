@@ -17,9 +17,8 @@
 
 package io.shardingsphere.core.keygen;
 
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import io.shardingsphere.core.exception.ShardingConfigurationException;
+import io.shardingsphere.core.keygen.generator.impl.SnowflakeKeyGenerator;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -29,36 +28,11 @@ public final class KeyGeneratorFactoryTest {
     
     @Test
     public void assertCreateKeyGeneratorSuccess() {
-        assertThat(KeyGeneratorFactory.newInstance(DefaultKeyGenerator.class.getName()), instanceOf(DefaultKeyGenerator.class));
+        assertThat(KeyGeneratorFactory.newInstance("SNOWFLAKE"), instanceOf(SnowflakeKeyGenerator.class));
     }
     
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = ShardingConfigurationException.class)
     public void assertCreateKeyGeneratorFailureWithInstantiationError() {
-        KeyGeneratorFactory.newInstance(InstantiationKeyGenerator.class.getName());
-    }
-    
-    @Test(expected = IllegalArgumentException.class)
-    public void assertCreateKeyGeneratorFailureWithIllegalAccess() {
-        KeyGeneratorFactory.newInstance(IllegalAccessKeyGenerator.class.getName());
-    }
-    
-    @RequiredArgsConstructor
-    public static final class InstantiationKeyGenerator implements KeyGenerator {
-        
-        private final int field;
-        
-        @Override
-        public Number generateKey() {
-            return null;
-        }
-    }
-    
-    @NoArgsConstructor(access = AccessLevel.PRIVATE)
-    public static final class IllegalAccessKeyGenerator implements KeyGenerator {
-        
-        @Override
-        public Number generateKey() {
-            return null;
-        }
+        KeyGeneratorFactory.newInstance("instantiation");
     }
 }

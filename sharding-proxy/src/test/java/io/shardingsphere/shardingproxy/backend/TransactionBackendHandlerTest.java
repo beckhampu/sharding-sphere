@@ -30,12 +30,12 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 @RunWith(MockitoJUnitRunner.class)
-public class TransactionBackendHandlerTest {
+public final class TransactionBackendHandlerTest {
     
     private BackendConnection backendConnection = new BackendConnection(TransactionType.LOCAL);
     
     @Test
-    public void assertTransactionHandlerExecute() {
+    public void assertExecute() {
         TransactionBackendHandler transactionBackendHandler = new TransactionBackendHandler(TransactionOperationType.BEGIN, backendConnection);
         CommandResponsePackets actual = transactionBackendHandler.execute();
         assertThat(actual.getHeadPacket(), instanceOf(OKPacket.class));

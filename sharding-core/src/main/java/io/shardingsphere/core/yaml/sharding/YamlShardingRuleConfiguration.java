@@ -20,7 +20,6 @@ package io.shardingsphere.core.yaml.sharding;
 import io.shardingsphere.api.config.rule.MasterSlaveRuleConfiguration;
 import io.shardingsphere.api.config.rule.ShardingRuleConfiguration;
 import io.shardingsphere.api.config.rule.TableRuleConfiguration;
-import io.shardingsphere.core.keygen.KeyGeneratorFactory;
 import io.shardingsphere.core.yaml.masterslave.YamlMasterSlaveRuleConfiguration;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -57,7 +56,7 @@ public class YamlShardingRuleConfiguration {
     
     private YamlShardingStrategyConfiguration defaultTableStrategy;
     
-    private String defaultKeyGeneratorClassName;
+    private YamlKeyGeneratorConfiguration defaultKeyGenerator;
     
     private Map<String, YamlMasterSlaveRuleConfiguration> masterSlaveRules = new LinkedHashMap<>();
     
@@ -70,7 +69,7 @@ public class YamlShardingRuleConfiguration {
         bindingTables.addAll(shardingRuleConfiguration.getBroadcastTables());
         defaultDatabaseStrategy = new YamlShardingStrategyConfiguration(shardingRuleConfiguration.getDefaultDatabaseShardingStrategyConfig());
         defaultTableStrategy = new YamlShardingStrategyConfiguration(shardingRuleConfiguration.getDefaultTableShardingStrategyConfig());
-        defaultKeyGeneratorClassName = null == shardingRuleConfiguration.getDefaultKeyGenerator() ? null : shardingRuleConfiguration.getDefaultKeyGenerator().getClass().getName();
+        defaultKeyGenerator = null == shardingRuleConfiguration.getDefaultKeyGeneratorConfig() ? null : new YamlKeyGeneratorConfiguration(shardingRuleConfiguration.getDefaultKeyGeneratorConfig());
         for (MasterSlaveRuleConfiguration each : shardingRuleConfiguration.getMasterSlaveRuleConfigs()) {
             masterSlaveRules.put(each.getName(), new YamlMasterSlaveRuleConfiguration(each));
         }
@@ -97,8 +96,8 @@ public class YamlShardingRuleConfiguration {
         if (null != defaultTableStrategy) {
             result.setDefaultTableShardingStrategyConfig(defaultTableStrategy.build());
         }
-        if (null != defaultKeyGeneratorClassName) {
-            result.setDefaultKeyGenerator(KeyGeneratorFactory.newInstance(defaultKeyGeneratorClassName));
+        if (null != defaultKeyGenerator) {
+            result.setDefaultKeyGeneratorConfig(defaultKeyGenerator.getKeyGeneratorConfiguration());
         }
         Collection<MasterSlaveRuleConfiguration> masterSlaveRuleConfigs = new LinkedList<>();
         for (Entry<String, YamlMasterSlaveRuleConfiguration> entry : masterSlaveRules.entrySet()) {

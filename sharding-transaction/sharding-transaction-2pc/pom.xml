@@ -11,9 +11,8 @@
     <artifactId>sharding-transaction-2pc</artifactId>
     <name>${project.artifactId}</name>
     <packaging>pom</packaging>
-
+    
     <modules>
-        <module>sharding-transaction-2pc-spi</module>
-        <module>sharding-transaction-2pc-xa</module>
+        <module>sharding-transaction-xa</module>
     </modules>
 </project>

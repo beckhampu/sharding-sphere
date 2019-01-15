@@ -101,7 +101,7 @@ public class TableReferencesClauseParser implements SQLClauseParser {
         if (Strings.isNullOrEmpty(tableName)) {
             return;
         }
-        if (isSingleTableOnly || shardingRule.findTableRuleByLogicTable(tableName).isPresent()
+        if (isSingleTableOnly || shardingRule.findTableRule(tableName).isPresent()
                 || shardingRule.isBroadcastTable(tableName) || shardingRule.findBindingTableRule(tableName).isPresent()
                 || shardingRule.getShardingDataSourceNames().getDataSourceNames().contains(shardingRule.getShardingDataSourceNames().getDefaultDataSourceName())) {
             sqlStatement.addSQLToken(new TableToken(beginPosition, skippedSchemaNameLength, literals));
@@ -124,7 +124,7 @@ public class TableReferencesClauseParser implements SQLClauseParser {
                 lexerEngine.skipIfEqual(Symbol.COMMA);
                 String literals = lexerEngine.getCurrentToken().getLiterals();
                 Preconditions.checkState(!Symbol.RIGHT_PAREN.getLiterals().equals(literals), "There is an error in the vicinity of the force index syntax.");
-                if (shardingRule.isLogicIndex(literals, tableName)) {
+                if (literals.equals(shardingRule.getTableRule(tableName).getLogicIndex())) {
                     int beginPosition = lexerEngine.getCurrentToken().getEndPosition() - literals.length();
                     sqlStatement.addSQLToken(new IndexToken(beginPosition, literals, tableName));
                 }
@@ -137,7 +137,7 @@ public class TableReferencesClauseParser implements SQLClauseParser {
     private void parseJoinTable(final SQLStatement sqlStatement) {
         while (parseJoinType()) {
             if (lexerEngine.equalAny(Symbol.LEFT_PAREN)) {
-                throw new SQLParsingUnsupportedException("Cannot support sub query for join table.");
+                throw new SQLParsingUnsupportedException("Cannot support subquery for join table.");
             }
             parseTableFactor(sqlStatement, false);
             parseJoinCondition(sqlStatement);

@@ -71,7 +71,7 @@ public final class ParsingSQLRouter implements ShardingRouter {
     
     private final boolean showSQL;
     
-    private final List<Number> generatedKeys = new LinkedList<>();
+    private final List<Comparable<?>> generatedKeys = new LinkedList<>();
     
     private final ParsingHook parsingHook = new SPIParsingHook();
     
@@ -90,21 +90,23 @@ public final class ParsingSQLRouter implements ShardingRouter {
     
     @Override
     public SQLRouteResult route(final String logicSQL, final List<Object> parameters, final SQLStatement sqlStatement) {
-        Optional<GeneratedKey> generatedKey = sqlStatement instanceof InsertStatement ? getGenerateKey(shardingRule, (InsertStatement) sqlStatement, parameters) : Optional.<GeneratedKey>absent();
+        Optional<GeneratedKey> generatedKey = sqlStatement instanceof InsertStatement ? getGenerateKey(parameters, (InsertStatement) sqlStatement) : Optional.<GeneratedKey>absent();
         SQLRouteResult result = new SQLRouteResult(sqlStatement, generatedKey.orNull());
         ShardingConditions shardingConditions = OptimizeEngineFactory.newInstance(shardingRule, sqlStatement, parameters, generatedKey.orNull()).optimize();
         if (generatedKey.isPresent()) {
             setGeneratedKeys(result, generatedKey.get());
         }
-        if (sqlStatement instanceof SelectStatement && !sqlStatement.getTables().isEmpty() && !((SelectStatement) sqlStatement).getSubQueryConditions().isEmpty()) {
-            mergeShardingValueForSubQuery(sqlStatement.getConditions(), shardingConditions);
+        if (sqlStatement instanceof SelectStatement && isNeedMergeShardingValues((SelectStatement) sqlStatement)) {
+            checkSubqueryShardingValues(sqlStatement.getConditions(), shardingConditions);
+            mergeShardingValues(shardingConditions);
         }
         RoutingResult routingResult = RoutingEngineFactory.newInstance(shardingRule, shardingMetaData.getDataSource(), sqlStatement, shardingConditions).route();
+        boolean isSingleRouting = routingResult.isSingleRouting();
         SQLRewriteEngine rewriteEngine = new SQLRewriteEngine(shardingRule, logicSQL, databaseType, sqlStatement, shardingConditions, parameters);
         if (sqlStatement instanceof SelectStatement && null != ((SelectStatement) sqlStatement).getLimit()) {
-            processLimit(parameters, (SelectStatement) sqlStatement);
+            processLimit(parameters, (SelectStatement) sqlStatement, isSingleRouting);
         }
-        SQLBuilder sqlBuilder = rewriteEngine.rewrite(routingResult.isSingleRouting());
+        SQLBuilder sqlBuilder = rewriteEngine.rewrite(isSingleRouting);
         for (TableUnit each : routingResult.getTableUnits().getTableUnits()) {
             result.getRouteUnits().add(new RouteUnit(each.getDataSourceName(), rewriteEngine.generateSQL(each, sqlBuilder, shardingMetaData.getDataSource())));
         }
@@ -114,7 +116,7 @@ public final class ParsingSQLRouter implements ShardingRouter {
         return result;
     }
     
-    private Optional<GeneratedKey> getGenerateKey(final ShardingRule shardingRule, final InsertStatement insertStatement, final List<Object> parameters) {
+    private Optional<GeneratedKey> getGenerateKey(final List<Object> parameters, final InsertStatement insertStatement) {
         GeneratedKey result = null;
         if (-1 != insertStatement.getGenerateKeyColumnIndex()) {
             for (GeneratedKeyCondition generatedKeyCondition : insertStatement.getGeneratedKeyConditions()) {
@@ -124,17 +126,17 @@ public final class ParsingSQLRouter implements ShardingRouter {
                 if (-1 == generatedKeyCondition.getIndex()) {
                     result.getGeneratedKeys().add(generatedKeyCondition.getValue());
                 } else {
-                    result.getGeneratedKeys().add((Number) parameters.get(generatedKeyCondition.getIndex()));
+                    result.getGeneratedKeys().add((Comparable<?>) parameters.get(generatedKeyCondition.getIndex()));
                 }
             }
             return Optional.fromNullable(result);
         }
         String logicTableName = insertStatement.getTables().getSingleTableName();
-        Optional<TableRule> tableRule = shardingRule.findTableRuleByLogicTable(logicTableName);
+        Optional<TableRule> tableRule = shardingRule.findTableRule(logicTableName);
         if (!tableRule.isPresent()) {
             return Optional.absent();
         }
-        Optional<Column> generateKeyColumn = shardingRule.getGenerateKeyColumn(logicTableName);
+        Optional<Column> generateKeyColumn = shardingRule.findGenerateKeyColumn(logicTableName);
         if (generateKeyColumn.isPresent()) {
             result = new GeneratedKey(generateKeyColumn.get());
             for (int i = 0; i < insertStatement.getInsertValues().getInsertValues().size(); i++) {
@@ -150,30 +152,40 @@ public final class ParsingSQLRouter implements ShardingRouter {
         sqlRouteResult.getGeneratedKey().getGeneratedKeys().addAll(generatedKeys);
     }
     
-    private void mergeShardingValueForSubQuery(final Conditions conditions, final ShardingConditions shardingConditions) {
-        Preconditions.checkState(!shardingConditions.getShardingConditions().isEmpty(), "Must have sharding column with subquery.");
-        Preconditions.checkState(isAllEqualShardingOperator(conditions), "Only support sharding by '=' with subquery.");
-        ShardingCondition firstShardingCondition = shardingConditions.getShardingConditions().remove(0);
-        Preconditions.checkState(isListShardingValue(firstShardingCondition), "Only support sharding by '=' with subquery.");
-        for (ShardingCondition each : shardingConditions.getShardingConditions()) {
-            Preconditions.checkState(isSameShardingCondition(firstShardingCondition, each), "Sharding value must same with subquery.");
-        }
-        shardingConditions.getShardingConditions().clear();
-        shardingConditions.getShardingConditions().add(firstShardingCondition);
+    private boolean isNeedMergeShardingValues(final SelectStatement selectStatement) {
+        return !selectStatement.getSubqueryConditions().isEmpty() && !shardingRule.getShardingLogicTableNames(selectStatement.getTables().getTableNames()).isEmpty();
     }
     
-    private boolean isAllEqualShardingOperator(final Conditions conditions) {
+    private void checkSubqueryShardingValues(final Conditions conditions, final ShardingConditions shardingConditions) {
+        Preconditions.checkState(!shardingConditions.getShardingConditions().isEmpty(), "Must have sharding column with subquery.");
+        Preconditions.checkState(isShardingOperatorAllEqual(conditions), "Only support sharding by '=' with subquery.");
+        Preconditions.checkState(isListShardingValue(shardingConditions), "Only support sharding by '=' with subquery.");
+        if (shardingConditions.getShardingConditions().size() > 1) {
+            Preconditions.checkState(isSameShardingCondition(shardingConditions), "Sharding value must same with subquery.");
+        }
+    }
+    
+    private boolean isShardingOperatorAllEqual(final Conditions conditions) {
         for (AndCondition each : conditions.getOrCondition().getAndConditions()) {
-            if (!isAllEqualShardingOperator(each)) {
+            if (!isShardingOperatorAllEqual(each)) {
                 return false;
             }
         }
         return true;
     }
     
-    private boolean isAllEqualShardingOperator(final AndCondition andCondition) {
+    private boolean isShardingOperatorAllEqual(final AndCondition andCondition) {
         for (Condition each : andCondition.getConditions()) {
             if (ShardingOperator.EQUAL != each.getOperator()) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    private boolean isListShardingValue(final ShardingConditions shardingConditions) {
+        for (ShardingCondition each : shardingConditions.getShardingConditions()) {
+            if (!isListShardingValue(each)) {
                 return false;
             }
         }
@@ -189,6 +201,16 @@ public final class ParsingSQLRouter implements ShardingRouter {
         return true;
     }
     
+    private boolean isSameShardingCondition(final ShardingConditions shardingConditions) {
+        ShardingCondition example = shardingConditions.getShardingConditions().remove(shardingConditions.getShardingConditions().size() - 1);
+        for (ShardingCondition each : shardingConditions.getShardingConditions()) {
+            if (!isSameShardingCondition(example, each)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     private boolean isSameShardingCondition(final ShardingCondition shardingCondition1, final ShardingCondition shardingCondition2) {
         if (shardingCondition1.getShardingValues().size() != shardingCondition2.getShardingValues().size()) {
             return false;
@@ -196,8 +218,6 @@ public final class ParsingSQLRouter implements ShardingRouter {
         for (int i = 0; i < shardingCondition1.getShardingValues().size(); i++) {
             ShardingValue shardingValue1 = shardingCondition1.getShardingValues().get(i);
             ShardingValue shardingValue2 = shardingCondition2.getShardingValues().get(i);
-            Preconditions.checkArgument(shardingValue1 instanceof ListShardingValue, "Only support sharding by '=' with subquery.");
-            Preconditions.checkArgument(shardingValue2 instanceof ListShardingValue, "Only support sharding by '=' with subquery.");
             if (!isSameShardingValue((ListShardingValue) shardingValue1, (ListShardingValue) shardingValue2)) {
                 return false;
             }
@@ -206,7 +226,7 @@ public final class ParsingSQLRouter implements ShardingRouter {
     }
     
     private boolean isSameShardingValue(final ListShardingValue shardingValue1, final ListShardingValue shardingValue2) {
-        return isSameLogicTable(shardingValue1, shardingValue2) 
+        return isSameLogicTable(shardingValue1, shardingValue2)
                 && shardingValue1.getColumnName().equals(shardingValue2.getColumnName()) && shardingValue1.getValues().equals(shardingValue2.getValues());
     }
     
@@ -219,8 +239,16 @@ public final class ParsingSQLRouter implements ShardingRouter {
         return bindingRule.isPresent() && bindingRule.get().hasLogicTable(shardingValue2.getLogicTableName());
     }
     
-    private void processLimit(final List<Object> parameters, final SelectStatement selectStatement) {
+    private void mergeShardingValues(final ShardingConditions shardingConditions) {
+        if (shardingConditions.getShardingConditions().size() > 1) {
+            ShardingCondition shardingCondition = shardingConditions.getShardingConditions().remove(shardingConditions.getShardingConditions().size() - 1);
+            shardingConditions.getShardingConditions().clear();
+            shardingConditions.getShardingConditions().add(shardingCondition);
+        }
+    }
+    
+    private void processLimit(final List<Object> parameters, final SelectStatement selectStatement, final boolean isSingleRouting) {
         boolean isNeedFetchAll = (!selectStatement.getGroupByItems().isEmpty() || !selectStatement.getAggregationSelectItems().isEmpty()) && !selectStatement.isSameGroupByAndOrderByItems();
-        selectStatement.getLimit().processParameters(parameters, isNeedFetchAll, databaseType);
+        selectStatement.getLimit().processParameters(parameters, isNeedFetchAll, databaseType, isSingleRouting);
     }
 }

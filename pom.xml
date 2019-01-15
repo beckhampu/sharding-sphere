@@ -40,7 +40,7 @@
         <commons-codec.version>1.10</commons-codec.version>
         
         <javax.transaction.version>1.1</javax.transaction.version>
-        <atomikos.version>4.0.4</atomikos.version>
+        <atomikos.version>4.0.6</atomikos.version>
         
         <curator.version>2.10.0</curator.version>
         <grpc.version>1.7.0</grpc.version>
@@ -59,6 +59,7 @@
         <hikari-cp.version>2.4.11</hikari-cp.version>
         <alibaba.druid.version>1.1.11</alibaba.druid.version>
         <commons-dbcp2.version>2.2.0</commons-dbcp2.version>
+        <tomcat-dbcp.version>9.0.14</tomcat-dbcp.version>
         <commons-pool.version>1.6</commons-pool.version>
         <h2.version>1.4.196</h2.version>
         <mysql-connector-java.version>5.1.42</mysql-connector-java.version>
@@ -288,6 +289,12 @@
                         <artifactId>commons-pool</artifactId>
                     </exclusion>
                 </exclusions>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat</groupId>
+                <artifactId>tomcat-dbcp</artifactId>
+                <version>${tomcat-dbcp.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>

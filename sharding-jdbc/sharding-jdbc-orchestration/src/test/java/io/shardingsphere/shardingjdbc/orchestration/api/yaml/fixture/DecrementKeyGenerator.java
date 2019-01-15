@@ -17,16 +17,26 @@
 
 package io.shardingsphere.shardingjdbc.orchestration.api.yaml.fixture;
 
-import io.shardingsphere.core.keygen.KeyGenerator;
+import io.shardingsphere.core.keygen.generator.KeyGenerator;
+import lombok.Getter;
+import lombok.Setter;
 
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class DecrementKeyGenerator implements KeyGenerator {
     
+    @Getter
+    private final String type = "DECREMENT";
+    
     private final AtomicInteger sequence = new AtomicInteger(100);
     
+    @Getter
+    @Setter
+    private Properties properties = new Properties();
+    
     @Override
-    public Number generateKey() {
+    public Comparable<?> generateKey() {
         return sequence.decrementAndGet();
     }
 }

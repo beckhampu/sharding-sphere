@@ -23,7 +23,6 @@ import io.shardingsphere.api.config.rule.ShardingRuleConfiguration;
 import io.shardingsphere.api.config.rule.TableRuleConfiguration;
 import io.shardingsphere.api.config.strategy.InlineShardingStrategyConfiguration;
 import io.shardingsphere.core.config.DataSourceConfiguration;
-import io.shardingsphere.core.constant.PoolType;
 import io.shardingsphere.core.rule.Authentication;
 import org.junit.Test;
 
@@ -43,12 +42,12 @@ public class ConfigurationYamlConverterTest {
             + "  dataSourceClassName: com.zaxxer.hikari.HikariDataSource\n" + "  properties:\n"
             + "    url: jdbc:mysql://localhost:3306/demo_ds_master\n" + "    username: root\n" + "    password: null\n";
     
-    private static final String SHARDING_RULE_YAML = "  tables:\n" + "    t_order:\n" + "      actualDataNodes: ds_${0..1}.t_order_${0..1}\n" + "      tableStrategy:\n"
-            + "        inline:\n" + "          shardingColumn: order_id\n" + "          algorithmExpression: t_order_${order_id % 2}\n"
-            + "      keyGeneratorColumnName: order_id\n" + "    t_order_item:\n" + "      actualDataNodes: ds_${0..1}.t_order_item_${0..1}\n" + "      tableStrategy:\n" + "        inline:\n"
-            + "          shardingColumn: order_id\n" + "          algorithmExpression: t_order_item_${order_id % 2}\n" + "      keyGeneratorColumnName: order_item_id\n" + "  bindingTables:\n"
-            + "    - t_order,t_order_item\n" + "  defaultDataSourceName: ds_1\n" + "  defaultDatabaseStrategy:\n" + "    inline:\n" + "      shardingColumn: user_id\n"
-            + "      algorithmExpression: ds_${user_id % 2}";
+    private static final String SHARDING_RULE_YAML = "  tables:\n" + "    t_order:\n" + "      actualDataNodes: ds_${0..1}.t_order_${0..1}\n" + "      tableStrategy:\n" 
+            + "        inline:\n" + "          shardingColumn: order_id\n" + "          algorithmExpression: t_order_${order_id % 2}\n" + "      keyGenerator:\n" 
+            + "        column: order_id\n" + "    t_order_item:\n" + "      actualDataNodes: ds_${0..1}.t_order_item_${0..1}\n" + "      tableStrategy:\n" 
+            + "        inline:\n" + "          shardingColumn: order_id\n" + "          algorithmExpression: t_order_item_${order_id % 2}\n" + "      keyGenerator:\n" 
+            + "        column: order_item_id\n" + "  bindingTables:\n" + "    - t_order,t_order_item\n" + "  defaultDataSourceName: ds_1\n" 
+            + "  defaultDatabaseStrategy:\n" + "    inline:\n" + "      shardingColumn: user_id\n" + "      algorithmExpression: ds_${user_id % 2}";
     
     private static final String MASTER_SLAVE_RULE_YAML = "masterDataSourceName: master_ds\n" + "name: ms_ds\n" + "slaveDataSourceNames:\n" + "- slave_ds_0\n" + "- slave_ds_1\n";
     
@@ -113,7 +112,7 @@ public class ConfigurationYamlConverterTest {
         properties.put("jdbcUrl", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false;MODE=MySQL");
         properties.put("username", "root");
         properties.put("password", "root");
-        DataSourceConfiguration result = new DataSourceConfiguration(PoolType.DRUID.getClassName());
+        DataSourceConfiguration result = new DataSourceConfiguration("com.alibaba.druid.pool.DruidDataSource");
         result.getProperties().putAll(properties);
         return Collections.singletonMap("test", result);
     }

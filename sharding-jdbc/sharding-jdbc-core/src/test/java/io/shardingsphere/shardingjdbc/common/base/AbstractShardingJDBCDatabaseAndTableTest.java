@@ -18,12 +18,12 @@
 package io.shardingsphere.shardingjdbc.common.base;
 
 import com.google.common.base.Joiner;
+import io.shardingsphere.api.config.KeyGeneratorConfiguration;
 import io.shardingsphere.api.config.rule.ShardingRuleConfiguration;
 import io.shardingsphere.api.config.rule.TableRuleConfiguration;
 import io.shardingsphere.api.config.strategy.StandardShardingStrategyConfiguration;
 import io.shardingsphere.core.constant.DatabaseType;
 import io.shardingsphere.core.rule.ShardingRule;
-import io.shardingsphere.shardingjdbc.fixture.IncrementKeyGenerator;
 import io.shardingsphere.shardingjdbc.fixture.PreciseOrderShardingAlgorithm;
 import io.shardingsphere.shardingjdbc.fixture.RangeOrderShardingAlgorithm;
 import io.shardingsphere.shardingjdbc.jdbc.core.datasource.ShardingDataSource;
@@ -69,7 +69,7 @@ public abstract class AbstractShardingJDBCDatabaseAndTableTest extends AbstractS
             }
             orderItemTableRuleConfig.setActualDataNodes(Joiner.on(",").join(orderItemActualDataNodes));
             orderItemTableRuleConfig.setKeyGeneratorColumnName("item_id");
-            orderItemTableRuleConfig.setKeyGenerator(new IncrementKeyGenerator());
+            orderItemTableRuleConfig.setKeyGeneratorConfig(getKeyGeneratorConfiguration());
             shardingRuleConfig.getTableRuleConfigs().add(orderItemTableRuleConfig);
             TableRuleConfiguration configTableRuleConfig = new TableRuleConfiguration();
             configTableRuleConfig.setLogicTable("t_config");
@@ -80,6 +80,12 @@ public abstract class AbstractShardingJDBCDatabaseAndTableTest extends AbstractS
             ShardingRule shardingRule = new ShardingRule(shardingRuleConfig, entry.getValue().keySet());
             shardingDataSource = new ShardingDataSource(entry.getValue(), shardingRule);
         }
+    }
+    
+    private KeyGeneratorConfiguration getKeyGeneratorConfiguration() {
+        KeyGeneratorConfiguration keyGeneratorConfiguration = new KeyGeneratorConfiguration();
+        keyGeneratorConfiguration.setType("INCREMENT");
+        return keyGeneratorConfiguration;
     }
     
     @Override

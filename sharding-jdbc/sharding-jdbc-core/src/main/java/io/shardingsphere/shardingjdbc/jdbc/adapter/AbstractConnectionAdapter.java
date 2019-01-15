@@ -30,12 +30,8 @@ import io.shardingsphere.spi.root.RootInvokeHook;
 import io.shardingsphere.spi.root.SPIRootInvokeHook;
 import io.shardingsphere.transaction.api.TransactionType;
 import io.shardingsphere.transaction.api.TransactionTypeHolder;
-import io.shardingsphere.transaction.core.TransactionOperationType;
-import io.shardingsphere.transaction.core.context.SagaTransactionContext;
-import io.shardingsphere.transaction.core.context.ShardingTransactionContext;
-import io.shardingsphere.transaction.core.context.XATransactionContext;
-import io.shardingsphere.transaction.core.loader.ShardingTransactionHandlerRegistry;
-import io.shardingsphere.transaction.spi.ShardingTransactionHandler;
+import io.shardingsphere.transaction.core.ShardingTransactionEngineRegistry;
+import io.shardingsphere.transaction.spi.ShardingTransactionEngine;
 import lombok.Getter;
 
 import javax.sql.DataSource;
@@ -79,15 +75,12 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     
     private final TransactionType transactionType;
     
-    private final ShardingTransactionHandler<ShardingTransactionContext> shardingTransactionHandler;
+    private final ShardingTransactionEngine shardingTransactionEngine;
     
     protected AbstractConnectionAdapter(final TransactionType transactionType) {
         rootInvokeHook.start();
         this.transactionType = transactionType;
-        shardingTransactionHandler = ShardingTransactionHandlerRegistry.getInstance().getHandler(transactionType);
-        if (TransactionType.LOCAL != transactionType) {
-            Preconditions.checkNotNull(shardingTransactionHandler, "Cannot find transaction manager of [%s]", transactionType);
-        }
+        shardingTransactionEngine = ShardingTransactionEngineRegistry.getEngine(transactionType);
     }
     
     /**
@@ -123,13 +116,13 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
         } else if (!connections.isEmpty()) {
             result = new ArrayList<>(connectionSize);
             result.addAll(connections);
-            List<Connection> newConnections = createConnections(connectionMode, dataSource, connectionSize - connections.size());
+            List<Connection> newConnections = createConnections(dataSourceName, connectionMode, dataSource, connectionSize - connections.size());
             result.addAll(newConnections);
             synchronized (cachedConnections) {
                 cachedConnections.putAll(dataSourceName, newConnections);
             }
         } else {
-            result = new ArrayList<>(createConnections(connectionMode, dataSource, connectionSize));
+            result = new ArrayList<>(createConnections(dataSourceName, connectionMode, dataSource, connectionSize));
             synchronized (cachedConnections) {
                 cachedConnections.putAll(dataSourceName, result);
             }
@@ -138,23 +131,23 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     }
     
     @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    private List<Connection> createConnections(final ConnectionMode connectionMode, final DataSource dataSource, final int connectionSize) throws SQLException {
+    private List<Connection> createConnections(final String dataSourceName, final ConnectionMode connectionMode, final DataSource dataSource, final int connectionSize) throws SQLException {
         if (1 == connectionSize) {
-            return Collections.singletonList(createConnection(dataSource));
+            return Collections.singletonList(createConnection(dataSourceName, dataSource));
         }
         if (ConnectionMode.CONNECTION_STRICTLY == connectionMode) {
-            return createConnections(dataSource, connectionSize);
+            return createConnections(dataSourceName, dataSource, connectionSize);
         }
         synchronized (dataSource) {
-            return createConnections(dataSource, connectionSize);
+            return createConnections(dataSourceName, dataSource, connectionSize);
         }
     }
     
-    private List<Connection> createConnections(final DataSource dataSource, final int connectionSize) throws SQLException {
+    private List<Connection> createConnections(final String dataSourceName, final DataSource dataSource, final int connectionSize) throws SQLException {
         List<Connection> result = new ArrayList<>(connectionSize);
         for (int i = 0; i < connectionSize; i++) {
             try {
-                result.add(createConnection(dataSource));
+                result.add(createConnection(dataSourceName, dataSource));
             } catch (final SQLException ex) {
                 for (Connection each : result) {
                     each.close();
@@ -165,10 +158,14 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
         return result;
     }
     
-    private Connection createConnection(final DataSource dataSource) throws SQLException {
-        Connection result = dataSource.getConnection();
+    private Connection createConnection(final String dataSourceName, final DataSource dataSource) throws SQLException {
+        Connection result = isInShardingTransaction() ? shardingTransactionEngine.getConnection(dataSourceName) : dataSource.getConnection();
         replayMethodsInvocation(result);
         return result;
+    }
+    
+    private boolean isInShardingTransaction() {
+        return null != shardingTransactionEngine && shardingTransactionEngine.isInTransaction();
     }
     
     protected abstract Map<String, DataSource> getDataSourceMap();
@@ -182,57 +179,59 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     public final void setAutoCommit(final boolean autoCommit) throws SQLException {
         this.autoCommit = autoCommit;
         if (TransactionType.LOCAL == transactionType) {
-            recordMethodInvocation(Connection.class, "setAutoCommit", new Class[]{boolean.class}, new Object[]{autoCommit});
-            forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
-                
-                @Override
-                public void execute(final Connection connection) throws SQLException {
-                    connection.setAutoCommit(autoCommit);
-                }
-            });
+            setAutoCommitForLocalTransaction(autoCommit);
+        } else if (!autoCommit) {
+            shardingTransactionEngine.begin();
         }
-        if (autoCommit) {
-            return;
-        }
-        if (TransactionType.XA == transactionType) {
-            shardingTransactionHandler.doInTransaction(new XATransactionContext(TransactionOperationType.BEGIN));
-        } else if (TransactionType.BASE == transactionType) {
-            shardingTransactionHandler.doInTransaction(new SagaTransactionContext(TransactionOperationType.BEGIN, this));
-        }
+    }
+    
+    private void setAutoCommitForLocalTransaction(final boolean autoCommit) throws SQLException {
+        recordMethodInvocation(Connection.class, "setAutoCommit", new Class[]{boolean.class}, new Object[]{autoCommit});
+        forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
+            
+            @Override
+            public void execute(final Connection connection) throws SQLException {
+                connection.setAutoCommit(autoCommit);
+            }
+        });
     }
     
     @Override
     public final void commit() throws SQLException {
         if (TransactionType.LOCAL == transactionType) {
-            forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
-                
-                @Override
-                public void execute(final Connection connection) throws SQLException {
-                    connection.commit();
-                }
-            });
-        } else if (TransactionType.XA == transactionType) {
-            shardingTransactionHandler.doInTransaction(new XATransactionContext(TransactionOperationType.COMMIT));
-        } else if (TransactionType.BASE == transactionType) {
-            shardingTransactionHandler.doInTransaction(new SagaTransactionContext(TransactionOperationType.COMMIT));
+            commitForLocalTransaction();
+        } else {
+            shardingTransactionEngine.commit();
         }
+    }
+    
+    private void commitForLocalTransaction() throws SQLException {
+        forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
+            
+            @Override
+            public void execute(final Connection connection) throws SQLException {
+                connection.commit();
+            }
+        });
     }
     
     @Override
     public final void rollback() throws SQLException {
         if (TransactionType.LOCAL == transactionType) {
-            forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
-                
-                @Override
-                public void execute(final Connection connection) throws SQLException {
-                    connection.rollback();
-                }
-            });
-        } else if (TransactionType.XA == transactionType) {
-            shardingTransactionHandler.doInTransaction(new XATransactionContext(TransactionOperationType.ROLLBACK));
-        } else if (TransactionType.BASE == transactionType) {
-            shardingTransactionHandler.doInTransaction(new SagaTransactionContext(TransactionOperationType.ROLLBACK));
+            rollbackForLocalTransaction();
+        } else {
+            shardingTransactionEngine.rollback();
         }
+    }
+    
+    private void rollbackForLocalTransaction() throws SQLException {
+        forceExecuteTemplate.execute(cachedConnections.values(), new ForceExecuteCallback<Connection>() {
+            
+            @Override
+            public void execute(final Connection connection) throws SQLException {
+                connection.rollback();
+            }
+        });
     }
     
     @Override
@@ -243,7 +242,7 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
         TransactionTypeHolder.clear();
         int connectionSize = cachedConnections.size();
         try {
-            forceExecuteTemplateForClose.execute(cachedConnections.entries(), new ForceExecuteCallback<Map.Entry<String, Connection>>() {
+            forceExecuteTemplateForClose.execute(cachedConnections.entries(), new ForceExecuteCallback<Entry<String, Connection>>() {
         
                 @Override
                 public void execute(final Entry<String, Connection> cachedConnections) throws SQLException {

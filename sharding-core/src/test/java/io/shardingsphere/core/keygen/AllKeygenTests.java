@@ -17,13 +17,14 @@
 
 package io.shardingsphere.core.keygen;
 
+import io.shardingsphere.core.keygen.generator.impl.SnowflakeKeyGeneratorTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-        DefaultKeyGeneratorTest.class, 
+        SnowflakeKeyGeneratorTest.class, 
         KeyGeneratorFactoryTest.class
     })
 public final class AllKeygenTests {

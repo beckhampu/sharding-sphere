@@ -40,7 +40,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
-public class SchemaBroadcastBackendHandlerTest {
+public final class SchemaBroadcastBackendHandlerTest {
     
     @Mock
     private BackendConnection backendConnection;
@@ -52,11 +52,11 @@ public class SchemaBroadcastBackendHandlerTest {
     public void assertExecuteSchemaBroadcast() {
         MockGlobalRegistryUtil.setLogicSchemas("schema", 10);
         setUnderlyingHandler(new CommandResponsePackets(new OKPacket(1)));
-        String sql = "grant select on testdb.* to root@'%'";
+        String sql = "grant select on test_db.* to root@'%'";
         SchemaBroadcastBackendHandler schemaBroadcastBackendHandler = new SchemaBroadcastBackendHandler(1, sql, backendConnection, DatabaseType.MySQL, backendHandlerFactory);
         CommandResponsePackets actual = schemaBroadcastBackendHandler.execute();
         assertThat(actual.getHeadPacket(), instanceOf(OKPacket.class));
-        verify(backendConnection).getSchemaName();
+        verify(backendConnection).setCurrentSchema(null);
         verify(backendConnection, times(10)).setCurrentSchema(anyString());
     }
     
@@ -64,11 +64,11 @@ public class SchemaBroadcastBackendHandlerTest {
     public void assertExecuteSchemaBroadcastFailed() {
         MockGlobalRegistryUtil.setLogicSchemas("schema", 5);
         setUnderlyingHandler(new CommandResponsePackets(new ErrPacket(1, new SQLException("no reason", "X999", -1))));
-        String sql = "grant select on testdb.* to root@'%'";
+        String sql = "grant select on test_db.* to root@'%'";
         SchemaBroadcastBackendHandler schemaBroadcastBackendHandler = new SchemaBroadcastBackendHandler(1, sql, backendConnection, DatabaseType.MySQL, backendHandlerFactory);
         CommandResponsePackets actual = schemaBroadcastBackendHandler.execute();
         assertThat(actual.getHeadPacket(), instanceOf(ErrPacket.class));
-        verify(backendConnection).getSchemaName();
+        verify(backendConnection).setCurrentSchema(null);
         verify(backendConnection, times(5)).setCurrentSchema(anyString());
     }
     

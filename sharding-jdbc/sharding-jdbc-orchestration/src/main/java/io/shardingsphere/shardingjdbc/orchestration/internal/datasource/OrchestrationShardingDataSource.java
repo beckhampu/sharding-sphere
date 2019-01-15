@@ -76,9 +76,9 @@ public class OrchestrationShardingDataSource extends AbstractOrchestrationDataSo
     }
     
     private Map<String, RuleConfiguration> getRuleConfigurationMap() {
-        Map<String, RuleConfiguration> ruleConfigurationMap = new LinkedHashMap<>();
-        ruleConfigurationMap.put(ShardingConstant.LOGIC_SCHEMA_NAME, dataSource.getShardingContext().getShardingRule().getShardingRuleConfig());
-        return ruleConfigurationMap;
+        Map<String, RuleConfiguration> result = new LinkedHashMap<>(1, 1);
+        result.put(ShardingConstant.LOGIC_SCHEMA_NAME, dataSource.getShardingContext().getShardingRule().getShardingRuleConfig());
+        return result;
     }
     
     @Override
@@ -87,7 +87,7 @@ public class OrchestrationShardingDataSource extends AbstractOrchestrationDataSo
     }
     
     @Override
-    public final void close() {
+    public final void close() throws Exception {
         dataSource.close();
         getShardingOrchestrationFacade().close();
     }
