@@ -3,7 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.shardingsphere</groupId>
+    <groupId>org.apache.shardingsphere</groupId>
     <artifactId>sharding-sphere</artifactId>
     <version>4.0.0.M1-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -62,7 +62,7 @@
         <tomcat-dbcp.version>9.0.14</tomcat-dbcp.version>
         <commons-pool.version>1.6</commons-pool.version>
         <h2.version>1.4.196</h2.version>
-        <mysql-connector-java.version>5.1.42</mysql-connector-java.version>
+        <mysql-connector-java.version>5.1.47</mysql-connector-java.version>
         <postgresql.version>9.4.1212</postgresql.version>
         <mssql.version>6.1.7.jre7-preview</mssql.version>
         
@@ -593,14 +593,14 @@
                             <ignoreMethodAnnotation>lombok.Generated</ignoreMethodAnnotation>
                         </ignoreMethodAnnotations>
                         <excludes>
-                            <exclude>io/shardingsphere/core/parsing/antlr/autogen/*.class</exclude>
+                            <exclude>org/apache/shardingsphere/core/parsing/antlr/autogen/*.class</exclude>
                             <exclude>authpb/*.class</exclude>
                             <exclude>mvccpb/*.class</exclude>
                             <exclude>etcdserverpb/*.class</exclude>
-                            <exclude>io/shardingsphere/orchestration/reg/zookeeper/*.class</exclude>
-                            <exclude>io/shardingsphere/orchestration/reg/etcd/*.class</exclude>
-                            <exclude>io/shardingsphere/**/*Test.class</exclude>
-                            <exclude>io/shardingsphere/**/Test*.class</exclude>
+                            <exclude>org/apache/shardingsphere/orchestration/reg/zookeeper/*.class</exclude>
+                            <exclude>org/apache/shardingsphere/orchestration/reg/etcd/*.class</exclude>
+                            <exclude>org/apache/shardingsphere/**/*Test.class</exclude>
+                            <exclude>org/apache/shardingsphere/**/Test*.class</exclude>
                         </excludes>
                     </instrumentation>
                 </configuration>
