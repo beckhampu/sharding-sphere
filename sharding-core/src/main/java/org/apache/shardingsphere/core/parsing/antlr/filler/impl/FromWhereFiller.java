@@ -28,7 +28,7 @@ import org.apache.shardingsphere.core.rule.ShardingRule;
  *
  * @author duhongjun
  */
-public final class FromWhereFiller implements SQLStatementFiller<FromWhereSegment> {
+public class FromWhereFiller implements SQLStatementFiller<FromWhereSegment> {
     
     @Override
     public void fill(final FromWhereSegment sqlSegment, final SQLStatement sqlStatement, final String sql, final ShardingRule shardingRule, final ShardingTableMetaData shardingTableMetaData) {

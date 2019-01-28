@@ -28,7 +28,6 @@ import org.apache.shardingsphere.core.parsing.parser.token.ItemsToken;
 import org.apache.shardingsphere.core.parsing.parser.token.SQLToken;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -37,23 +36,26 @@ import java.util.List;
  *
  * @author zhangliang
  * @author maxiaoguang
+ * @author panjuan
  */
 @Getter
 @Setter
 @ToString(callSuper = true)
 public final class InsertStatement extends DMLStatement {
     
-    private final Collection<Column> columns = new LinkedList<>();
+    private final List<Column> columns = new LinkedList<>();
     
     private List<GeneratedKeyCondition> generatedKeyConditions = new LinkedList<>();
     
     private final InsertValues insertValues = new InsertValues();
     
-    private int columnsListLastPosition;
+    private int columnsListLastIndex;
     
     private int generateKeyColumnIndex = -1;
     
-    private int insertValuesListLastPosition;
+    private int insertValuesListLastIndex;
+    
+    private boolean containGenerateKey;
     
     /**
      * Get items tokens.

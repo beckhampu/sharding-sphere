@@ -52,6 +52,7 @@ import java.util.List;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 public final class InsertOptimizeEngineTest {
     
@@ -101,7 +102,7 @@ public final class InsertOptimizeEngineTest {
         insertStatementWithValuesWithPlaceHolder = new InsertStatement();
         insertStatementWithValuesWithPlaceHolder.getTables().add(new Table("t_order", Optional.<String>absent()));
         insertStatementWithValuesWithPlaceHolder.setParametersIndex(4);
-        insertStatementWithValuesWithPlaceHolder.setInsertValuesListLastPosition(45);
+        insertStatementWithValuesWithPlaceHolder.setInsertValuesListLastIndex(45);
         insertStatementWithValuesWithPlaceHolder.addSQLToken(new TableToken(12, 0, "t_order"));
         insertStatementWithValuesWithPlaceHolder.addSQLToken(new InsertValuesToken(39, "t_order"));
         AndCondition andCondition1 = new AndCondition();
@@ -118,7 +119,7 @@ public final class InsertOptimizeEngineTest {
         insertStatementWithValuesWithoutPlaceHolder = new InsertStatement();
         insertStatementWithValuesWithoutPlaceHolder.getTables().add(new Table("t_order", Optional.<String>absent()));
         insertStatementWithValuesWithoutPlaceHolder.setParametersIndex(0);
-        insertStatementWithValuesWithoutPlaceHolder.setInsertValuesListLastPosition(50);
+        insertStatementWithValuesWithoutPlaceHolder.setInsertValuesListLastIndex(50);
         insertStatementWithValuesWithoutPlaceHolder.addSQLToken(new TableToken(12, 0, "t_order"));
         insertStatementWithValuesWithoutPlaceHolder.addSQLToken(new InsertValuesToken(42, "t_order"));
         ItemsToken itemsToken = new ItemsToken(34);
@@ -134,8 +135,8 @@ public final class InsertOptimizeEngineTest {
         insertStatementWithoutValuesWithPlaceHolder = new InsertStatement();
         insertStatementWithoutValuesWithPlaceHolder.getTables().add(new Table("t_order", Optional.<String>absent()));
         insertStatementWithoutValuesWithPlaceHolder.setParametersIndex(0);
-        insertStatementWithoutValuesWithPlaceHolder.setInsertValuesListLastPosition(47);
-        insertStatementWithoutValuesWithPlaceHolder.setColumnsListLastPosition(19);
+        insertStatementWithoutValuesWithPlaceHolder.setInsertValuesListLastIndex(47);
+        insertStatementWithoutValuesWithPlaceHolder.setColumnsListLastIndex(19);
         insertStatementWithoutValuesWithPlaceHolder.setGenerateKeyColumnIndex(-1);
         insertStatementWithoutValuesWithPlaceHolder.addSQLToken(new TableToken(12, 0, "t_order"));
         insertStatementWithoutValuesWithPlaceHolder.addSQLToken(new InsertValuesToken(24, "t_order"));
@@ -152,8 +153,8 @@ public final class InsertOptimizeEngineTest {
         insertStatementWithoutValuesWithoutPlaceHolder = new InsertStatement();
         insertStatementWithoutValuesWithoutPlaceHolder.getTables().add(new Table("t_order", Optional.<String>absent()));
         insertStatementWithoutValuesWithoutPlaceHolder.setParametersIndex(0);
-        insertStatementWithoutValuesWithoutPlaceHolder.setInsertValuesListLastPosition(50);
-        insertStatementWithoutValuesWithoutPlaceHolder.setColumnsListLastPosition(19);
+        insertStatementWithoutValuesWithoutPlaceHolder.setInsertValuesListLastIndex(50);
+        insertStatementWithoutValuesWithoutPlaceHolder.setColumnsListLastIndex(19);
         insertStatementWithoutValuesWithoutPlaceHolder.setGenerateKeyColumnIndex(-1);
         insertStatementWithoutValuesWithoutPlaceHolder.addSQLToken(new TableToken(12, 0, "t_order"));
         insertStatementWithoutValuesWithoutPlaceHolder.addSQLToken(new InsertValuesToken(24, "t_order"));
@@ -190,6 +191,7 @@ public final class InsertOptimizeEngineTest {
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(0).getShardingValues().get(1), 10);
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(1).getShardingValues().get(0), 2);
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(1).getShardingValues().get(1), 11);
+        assertTrue(insertStatementWithValuesWithPlaceHolder.isContainGenerateKey());
     }
     
     @Test
@@ -222,6 +224,7 @@ public final class InsertOptimizeEngineTest {
         assertThat(((InsertShardingCondition) actual.getShardingConditions().get(0)).getInsertValueExpression(), is("(12,'a', 1)"));
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(0).getShardingValues().get(0), 1);
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(0).getShardingValues().get(1), 12);
+        assertTrue(insertStatementWithValuesWithoutPlaceHolder.isContainGenerateKey());
     }
     
     @Test
@@ -248,6 +251,7 @@ public final class InsertOptimizeEngineTest {
         assertThat(((InsertShardingCondition) actual.getShardingConditions().get(0)).getInsertValueExpression(), is("order_id = 1, user_id = 12, status = 'a'"));
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(0).getShardingValues().get(0), 1);
         assertShardingValue((ListShardingValue) actual.getShardingConditions().get(0).getShardingValues().get(1), 12);
+        assertTrue(insertStatementWithoutValuesWithoutPlaceHolder.isContainGenerateKey());
     }
     
     private void assertShardingValue(final ListShardingValue actual, final int expected) {

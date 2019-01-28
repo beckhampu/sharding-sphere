@@ -21,6 +21,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.apache.shardingsphere.core.constant.SQLType;
 import org.apache.shardingsphere.core.parsing.parser.context.condition.Conditions;
 import org.apache.shardingsphere.core.parsing.parser.context.table.Tables;
@@ -38,6 +39,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Getter
 @Setter
+@ToString
 public abstract class AbstractSQLStatement implements SQLStatement {
     
     private final SQLType type;
@@ -50,6 +52,8 @@ public abstract class AbstractSQLStatement implements SQLStatement {
     private final List<SQLToken> sqlTokens = new LinkedList<>();
     
     private int parametersIndex;
+    
+    private String logicSQL;
     
     @Override
     public final void addSQLToken(final SQLToken sqlToken) {

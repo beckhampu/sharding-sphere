@@ -33,6 +33,7 @@ import java.util.List;
  *  Table name extractor.
  *
  * @author duhongjun
+ * @author panjuan
  */
 public final class TableNameExtractor implements OptionalSQLSegmentExtractor {
     
@@ -61,7 +62,7 @@ public final class TableNameExtractor implements OptionalSQLSegmentExtractor {
         Optional<ParserRuleContext> aliasNode = ExtractorUtils.findFirstChildNode(tableNameNode.get().getParent(), RuleName.ALIAS);
         if (aliasNode.isPresent()) {
             result.setAlias(aliasNode.get().getText());
-            result.setAliasStartPosition(aliasNode.get().getStart().getStartIndex());
+            result.setAliasStartIndex(aliasNode.get().getStart().getStartIndex());
         }
         return Optional.of(result);
     }
