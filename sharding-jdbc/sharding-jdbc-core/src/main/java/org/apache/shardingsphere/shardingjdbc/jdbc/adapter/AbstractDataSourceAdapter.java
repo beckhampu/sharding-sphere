@@ -20,14 +20,13 @@ package org.apache.shardingsphere.shardingjdbc.jdbc.adapter;
 import com.google.common.base.Preconditions;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.shardingsphere.core.bootstrap.ShardingBootstrap;
 import org.apache.shardingsphere.core.constant.DatabaseType;
-import org.apache.shardingsphere.core.util.ReflectiveUtil;
 import org.apache.shardingsphere.shardingjdbc.jdbc.unsupported.AbstractUnsupportedOperationDataSource;
 import org.apache.shardingsphere.transaction.ShardingTransactionManagerEngine;
 
 import javax.sql.DataSource;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -44,10 +43,6 @@ import java.util.logging.Logger;
 @Getter
 @Setter
 public abstract class AbstractDataSourceAdapter extends AbstractUnsupportedOperationDataSource implements AutoCloseable {
-    
-    static {
-        ShardingBootstrap.init();
-    }
     
     private final DatabaseType databaseType;
     
@@ -96,7 +91,9 @@ public abstract class AbstractDataSourceAdapter extends AbstractUnsupportedOpera
     public void close() throws Exception {
         for (DataSource each : dataSourceMap.values()) {
             try {
-                ReflectiveUtil.findMethod(each, "close").invoke(each);
+                Method method = each.getClass().getDeclaredMethod("close");
+                method.setAccessible(true);
+                method.invoke(each);
             } catch (final ReflectiveOperationException ignored) {
             }
         }

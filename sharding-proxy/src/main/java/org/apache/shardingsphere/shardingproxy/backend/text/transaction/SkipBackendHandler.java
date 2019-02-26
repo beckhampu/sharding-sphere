@@ -17,10 +17,10 @@
 
 package org.apache.shardingsphere.shardingproxy.backend.text.transaction;
 
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.apache.shardingsphere.shardingproxy.backend.text.TextProtocolBackendHandler;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 
 /**
  * Skip backend handler.
@@ -30,8 +30,8 @@ import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OK
 public final class SkipBackendHandler implements TextProtocolBackendHandler {
     
     @Override
-    public CommandResponsePackets execute() {
-        return new CommandResponsePackets(new OKPacket(1));
+    public BackendResponse execute() {
+        return new UpdateResponse();
     }
     
     @Override
@@ -40,7 +40,7 @@ public final class SkipBackendHandler implements TextProtocolBackendHandler {
     }
     
     @Override
-    public ResultPacket getResultValue() {
+    public QueryData getQueryData() {
         return null;
     }
 }

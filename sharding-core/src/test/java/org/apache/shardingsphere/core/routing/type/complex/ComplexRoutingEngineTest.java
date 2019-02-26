@@ -17,15 +17,17 @@
 
 package org.apache.shardingsphere.core.routing.type.complex;
 
-import org.apache.shardingsphere.api.algorithm.sharding.ListShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
-import org.apache.shardingsphere.api.config.rule.ShardingRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
-import org.apache.shardingsphere.api.config.strategy.InlineShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.config.sharding.ShardingRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.strategy.InlineShardingStrategyConfiguration;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingCondition;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingConditions;
+import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
+import org.apache.shardingsphere.core.parsing.parser.sql.SQLStatement;
 import org.apache.shardingsphere.core.routing.type.RoutingResult;
 import org.apache.shardingsphere.core.routing.type.TableUnit;
+import org.apache.shardingsphere.core.routing.value.ListRouteValue;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 import org.apache.shardingsphere.core.rule.ShardingRule;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,6 +40,7 @@ import java.util.List;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.mock;
 
 public final class ComplexRoutingEngineTest {
     
@@ -45,15 +48,11 @@ public final class ComplexRoutingEngineTest {
     
     @Before
     public void setEngineContext() {
-        TableRuleConfiguration tableRuleConfig1 = new TableRuleConfiguration();
-        tableRuleConfig1.setLogicTable("t_order");
-        tableRuleConfig1.setActualDataNodes("ds${0..1}.t_order_${0..2}");
+        TableRuleConfiguration tableRuleConfig1 = new TableRuleConfiguration("t_order", "ds${0..1}.t_order_${0..2}");
         tableRuleConfig1.setTableShardingStrategyConfig(new InlineShardingStrategyConfiguration("order_id", "t_order_${order_id % 2}"));
         ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
         shardingRuleConfig.getTableRuleConfigs().add(tableRuleConfig1);
-        TableRuleConfiguration tableRuleConfig2 = new TableRuleConfiguration();
-        tableRuleConfig2.setLogicTable("t_order_item");
-        tableRuleConfig2.setActualDataNodes("ds${0..1}.t_order_item_${0..2}");
+        TableRuleConfiguration tableRuleConfig2 = new TableRuleConfiguration("t_order_item", "ds${0..1}.t_order_item_${0..2}");
         tableRuleConfig2.setTableShardingStrategyConfig(new InlineShardingStrategyConfiguration("order_id", "t_order_item_${order_id % 2}"));
         shardingRuleConfig.getTableRuleConfigs().add(tableRuleConfig2);
         shardingRuleConfig.getBindingTableGroups().add("t_order, t_order_item");
@@ -65,13 +64,14 @@ public final class ComplexRoutingEngineTest {
     @Test
     public void assertRoutingForBindingTables() {
         List<ShardingCondition> shardingConditions = new ArrayList<>();
-        ShardingValue shardingValue1 = new ListShardingValue<>("t_order", "user_id", Collections.singleton(1L));
-        ShardingValue shardingValue2 = new ListShardingValue<>("t_order", "order_id", Collections.singleton(1L));
+        RouteValue shardingValue1 = new ListRouteValue<>(new Column("user_id", "t_order"), Collections.singleton(1L));
+        RouteValue shardingValue2 = new ListRouteValue<>(new Column("order_id", "t_order"), Collections.singleton(1L));
         ShardingCondition shardingCondition = new ShardingCondition();
         shardingCondition.getShardingValues().add(shardingValue1);
         shardingCondition.getShardingValues().add(shardingValue2);
         shardingConditions.add(shardingCondition);
-        ComplexRoutingEngine complexRoutingEngine = new ComplexRoutingEngine(shardingRule, Arrays.asList("t_order", "t_order_item"), new ShardingConditions(shardingConditions));
+        ComplexRoutingEngine complexRoutingEngine = new ComplexRoutingEngine(
+                mock(SQLStatement.class), shardingRule, Arrays.asList("t_order", "t_order_item"), new ShardingConditions(shardingConditions));
         RoutingResult routingResult = complexRoutingEngine.route();
         List<TableUnit> tableUnitList = new ArrayList<>(routingResult.getTableUnits().getTableUnits());
         assertThat(routingResult, instanceOf(RoutingResult.class));
@@ -85,13 +85,13 @@ public final class ComplexRoutingEngineTest {
     @Test
     public void assertRoutingForShardingTableJoinBroadcastTable() {
         List<ShardingCondition> shardingConditions = new ArrayList<>();
-        ShardingValue shardingValue1 = new ListShardingValue<>("t_order", "user_id", Collections.singleton(1L));
-        ShardingValue shardingValue2 = new ListShardingValue<>("t_order", "order_id", Collections.singleton(1L));
+        RouteValue shardingValue1 = new ListRouteValue<>(new Column("user_id", "t_order"), Collections.singleton(1L));
+        RouteValue shardingValue2 = new ListRouteValue<>(new Column("order_id", "t_order"), Collections.singleton(1L));
         ShardingCondition shardingCondition = new ShardingCondition();
         shardingCondition.getShardingValues().add(shardingValue1);
         shardingCondition.getShardingValues().add(shardingValue2);
         shardingConditions.add(shardingCondition);
-        ComplexRoutingEngine complexRoutingEngine = new ComplexRoutingEngine(shardingRule, Arrays.asList("t_order", "t_config"), new ShardingConditions(shardingConditions));
+        ComplexRoutingEngine complexRoutingEngine = new ComplexRoutingEngine(mock(SQLStatement.class), shardingRule, Arrays.asList("t_order", "t_config"), new ShardingConditions(shardingConditions));
         RoutingResult routingResult = complexRoutingEngine.route();
         List<TableUnit> tableUnitList = new ArrayList<>(routingResult.getTableUnits().getTableUnits());
         assertThat(routingResult, instanceOf(RoutingResult.class));

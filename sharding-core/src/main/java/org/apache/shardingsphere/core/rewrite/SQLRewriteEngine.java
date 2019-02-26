@@ -17,20 +17,31 @@
 
 package org.apache.shardingsphere.core.rewrite;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import org.apache.shardingsphere.core.constant.DatabaseType;
 import org.apache.shardingsphere.core.metadata.datasource.ShardingDataSourceMetaData;
-import org.apache.shardingsphere.core.optimizer.condition.ShardingConditions;
 import org.apache.shardingsphere.core.parsing.lexer.token.DefaultKeyword;
+import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
+import org.apache.shardingsphere.core.parsing.parser.context.condition.Condition;
 import org.apache.shardingsphere.core.parsing.parser.context.limit.Limit;
 import org.apache.shardingsphere.core.parsing.parser.context.orderby.OrderItem;
+import org.apache.shardingsphere.core.parsing.parser.expression.SQLExpression;
+import org.apache.shardingsphere.core.parsing.parser.expression.SQLNumberExpression;
+import org.apache.shardingsphere.core.parsing.parser.expression.SQLPlaceholderExpression;
+import org.apache.shardingsphere.core.parsing.parser.expression.SQLTextExpression;
 import org.apache.shardingsphere.core.parsing.parser.sql.SQLStatement;
+import org.apache.shardingsphere.core.parsing.parser.sql.dml.DMLStatement;
 import org.apache.shardingsphere.core.parsing.parser.sql.dml.insert.InsertStatement;
 import org.apache.shardingsphere.core.parsing.parser.sql.dql.select.SelectStatement;
 import org.apache.shardingsphere.core.parsing.parser.token.AggregationDistinctToken;
+import org.apache.shardingsphere.core.parsing.parser.token.EncryptColumnToken;
 import org.apache.shardingsphere.core.parsing.parser.token.IndexToken;
 import org.apache.shardingsphere.core.parsing.parser.token.InsertColumnToken;
 import org.apache.shardingsphere.core.parsing.parser.token.InsertValuesToken;
@@ -43,22 +54,33 @@ import org.apache.shardingsphere.core.parsing.parser.token.SQLToken;
 import org.apache.shardingsphere.core.parsing.parser.token.SchemaToken;
 import org.apache.shardingsphere.core.parsing.parser.token.TableToken;
 import org.apache.shardingsphere.core.rewrite.placeholder.AggregationDistinctPlaceholder;
+import org.apache.shardingsphere.core.rewrite.placeholder.EncryptUpdateItemColumnPlaceholder;
+import org.apache.shardingsphere.core.rewrite.placeholder.EncryptWhereColumnPlaceholder;
 import org.apache.shardingsphere.core.rewrite.placeholder.IndexPlaceholder;
 import org.apache.shardingsphere.core.rewrite.placeholder.InsertValuesPlaceholder;
 import org.apache.shardingsphere.core.rewrite.placeholder.SchemaPlaceholder;
+import org.apache.shardingsphere.core.rewrite.placeholder.ShardingPlaceholder;
 import org.apache.shardingsphere.core.rewrite.placeholder.TablePlaceholder;
 import org.apache.shardingsphere.core.routing.SQLUnit;
 import org.apache.shardingsphere.core.routing.type.RoutingTable;
 import org.apache.shardingsphere.core.routing.type.TableUnit;
 import org.apache.shardingsphere.core.rule.BindingTableRule;
 import org.apache.shardingsphere.core.rule.ShardingRule;
+import org.apache.shardingsphere.core.spi.hook.SPIRewriteHook;
 import org.apache.shardingsphere.core.util.SQLUtil;
-import org.apache.shardingsphere.spi.rewrite.RewriteHook;
-import org.apache.shardingsphere.spi.rewrite.SPIRewriteHook;
+import org.apache.shardingsphere.spi.algorithm.encrypt.ShardingEncryptor;
+import org.apache.shardingsphere.spi.algorithm.encrypt.ShardingQueryAssistedEncryptor;
+import org.apache.shardingsphere.spi.hook.RewriteHook;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * SQL rewrite engine.
@@ -81,8 +103,6 @@ public final class SQLRewriteEngine {
     
     private final List<SQLToken> sqlTokens;
     
-    private final ShardingConditions shardingConditions;
-    
     private final List<Object> parameters;
     
     private final RewriteHook rewriteHook = new SPIRewriteHook();
@@ -94,17 +114,14 @@ public final class SQLRewriteEngine {
      * @param originalSQL original SQL
      * @param databaseType database type
      * @param sqlStatement SQL statement
-     * @param shardingConditions sharding conditions
      * @param parameters parameters
      */
-    public SQLRewriteEngine(final ShardingRule shardingRule, final String originalSQL, final DatabaseType databaseType,
-                            final SQLStatement sqlStatement, final ShardingConditions shardingConditions, final List<Object> parameters) {
+    public SQLRewriteEngine(final ShardingRule shardingRule, final String originalSQL, final DatabaseType databaseType, final SQLStatement sqlStatement, final List<Object> parameters) {
         this.shardingRule = shardingRule;
         this.originalSQL = originalSQL;
         this.databaseType = databaseType;
         this.sqlStatement = sqlStatement;
         sqlTokens = sqlStatement.getSQLTokens();
-        this.shardingConditions = shardingConditions;
         this.parameters = parameters;
     }
     
@@ -177,6 +194,8 @@ public final class SQLRewriteEngine {
                 appendSymbolToken(sqlBuilder, (InsertColumnToken) each, count);
             } else if (each instanceof AggregationDistinctToken) {
                 appendAggregationDistinctPlaceholder(sqlBuilder, (AggregationDistinctToken) each, count, isRewrite);
+            } else if (each instanceof EncryptColumnToken) {
+                appendEncryptColumnPlaceholder(sqlBuilder, (EncryptColumnToken) each, count);
             } else if (each instanceof RemoveToken) {
                 appendRest(sqlBuilder, count, ((RemoveToken) each).getStopIndex());
             }
@@ -220,7 +239,8 @@ public final class SQLRewriteEngine {
     }
     
     private void appendInsertValuesToken(final SQLBuilder sqlBuilder, final InsertValuesToken insertValuesToken, final int count) {
-        sqlBuilder.appendPlaceholder(new InsertValuesPlaceholder(insertValuesToken.getTableName().toLowerCase(), shardingConditions));
+        sqlBuilder.appendPlaceholder(new InsertValuesPlaceholder(sqlStatement.getTables().getSingleTableName(), 
+                insertValuesToken.getType(), insertValuesToken.getColumnNames(), insertValuesToken.getColumnValues()));
         appendRest(sqlBuilder, count, ((InsertStatement) sqlStatement).getInsertValuesListLastIndex() + 1);
     }
     
@@ -279,6 +299,169 @@ public final class SQLRewriteEngine {
             sqlBuilder.appendPlaceholder(new AggregationDistinctPlaceholder(distinctToken.getColumnName().toLowerCase(), null, distinctToken.getAlias()));
         }
         appendRest(sqlBuilder, count, distinctToken.getStopIndex() + 1);
+    }
+    
+    private void appendEncryptColumnPlaceholder(final SQLBuilder sqlBuilder, final EncryptColumnToken encryptColumnToken, final int count) {
+        Optional<Condition> encryptCondition = getEncryptCondition(encryptColumnToken);
+        Preconditions.checkArgument(!encryptColumnToken.isInWhere() || encryptCondition.isPresent(), "Can not find encrypt condition");
+        ShardingPlaceholder result = encryptColumnToken.isInWhere() 
+                ? getEncryptColumnPlaceholderFromConditions(encryptColumnToken, encryptCondition.get()) : getEncryptColumnPlaceholderFromUpdateItem(encryptColumnToken);
+        sqlBuilder.appendPlaceholder(result);
+        appendRest(sqlBuilder, count, encryptColumnToken.getStopIndex() + 1);
+    }
+    
+    private Optional<Condition> getEncryptCondition(final EncryptColumnToken encryptColumnToken) {
+        List<Condition> conditions = sqlStatement.getEncryptConditions().getOrCondition().findConditions(encryptColumnToken.getColumn());
+        if (0 == conditions.size()) {
+            return Optional.absent();
+        }
+        if (1 == conditions.size()) {
+            return Optional.of(conditions.iterator().next());
+        }
+        return Optional.of(conditions.get(getEncryptConditionIndex(encryptColumnToken)));
+    }
+    
+    private int getEncryptConditionIndex(final EncryptColumnToken encryptColumnToken) {
+        List<SQLToken> result = new ArrayList<>(Collections2.filter(sqlTokens, new Predicate<SQLToken>() {
+            
+            @Override
+            public boolean apply(final SQLToken input) {
+                return input instanceof EncryptColumnToken && ((EncryptColumnToken) input).getColumn().equals(encryptColumnToken.getColumn());
+            }
+        }));
+        return result.indexOf(encryptColumnToken);
+    }
+    
+    private EncryptWhereColumnPlaceholder getEncryptColumnPlaceholderFromConditions(final EncryptColumnToken encryptColumnToken, final Condition encryptCondition) {
+        List<Comparable<?>> encryptColumnValues = getFinalEncryptColumnValues(encryptColumnToken, encryptCondition.getConditionValues(parameters));
+        encryptParameters(encryptCondition.getPositionIndexMap(), encryptColumnValues);
+        return new EncryptWhereColumnPlaceholder(encryptColumnToken.getColumn().getTableName(), getFinalEncryptColumnName(encryptColumnToken),
+                getPositionValues(encryptCondition.getPositionValueMap().keySet(), encryptColumnValues), encryptCondition.getPositionIndexMap().keySet(), encryptCondition.getOperator());
+    }
+    
+    private List<Comparable<?>> getFinalEncryptColumnValues(final EncryptColumnToken encryptColumnToken, final List<Comparable<?>> originalColumnValues) {
+        ShardingEncryptor shardingEncryptor = getShardingEncryptor(encryptColumnToken);
+        return shardingEncryptor instanceof ShardingQueryAssistedEncryptor
+                ? getEncryptAssistedColumnValues((ShardingQueryAssistedEncryptor) shardingEncryptor, originalColumnValues) : getEncryptColumnValues(shardingEncryptor, originalColumnValues);
+    }
+    
+    private ShardingEncryptor getShardingEncryptor(final EncryptColumnToken encryptColumnToken) {
+        return shardingRule.getShardingEncryptorEngine().getShardingEncryptor(encryptColumnToken.getColumn().getTableName(), encryptColumnToken.getColumn().getName()).get();
+    }
+    
+    private List<Comparable<?>> getEncryptAssistedColumnValues(final ShardingQueryAssistedEncryptor shardingEncryptor, final List<Comparable<?>> originalColumnValues) {
+        return Lists.transform(originalColumnValues, new Function<Comparable<?>, Comparable<?>>() {
+            
+            @Override
+            public Comparable<?> apply(final Comparable<?> input) {
+                return shardingEncryptor.queryAssistedEncrypt(input.toString());
+            }
+        });
+    }
+    
+    private List<Comparable<?>> getEncryptColumnValues(final ShardingEncryptor shardingEncryptor, final List<Comparable<?>> originalColumnValues) {
+        return Lists.transform(originalColumnValues, new Function<Comparable<?>, Comparable<?>>() {
+            
+            @Override
+            public Comparable<?> apply(final Comparable<?> input) {
+                return String.valueOf(shardingEncryptor.encrypt(input.toString()));
+            }
+        });
+    }
+    
+    private void encryptParameters(final Map<Integer, Integer> positionIndexes, final List<Comparable<?>> encryptColumnValues) {
+        if (!positionIndexes.isEmpty()) {
+            for (Entry<Integer, Integer> entry : positionIndexes.entrySet()) {
+                parameters.set(entry.getValue(), encryptColumnValues.get(entry.getKey()));
+            }
+        }
+    }
+    
+    private String getFinalEncryptColumnName(final EncryptColumnToken encryptColumnToken) {
+        return getShardingEncryptor(encryptColumnToken) instanceof ShardingQueryAssistedEncryptor ? getEncryptAssistedColumnName(encryptColumnToken) : encryptColumnToken.getColumn().getName();
+    }
+    
+    private Map<Integer, Comparable<?>> getPositionValues(final Collection<Integer> valuePositions, final List<Comparable<?>> encryptColumnValues) {
+        Map<Integer, Comparable<?>> result = new LinkedHashMap<>();
+        for (int each : valuePositions) {
+            result.put(each, encryptColumnValues.get(each));
+        }
+        return result;
+    }
+    
+    private EncryptUpdateItemColumnPlaceholder getEncryptColumnPlaceholderFromUpdateItem(final EncryptColumnToken encryptColumnToken) {
+        ShardingEncryptor shardingEncryptor = getShardingEncryptor(encryptColumnToken);
+        List<Comparable<?>> originalColumnValues = getOriginalColumnValuesFromUpdateItem(encryptColumnToken);
+        List<Comparable<?>> encryptColumnValues = getEncryptColumnValues(shardingEncryptor, originalColumnValues);
+        List<Comparable<?>> encryptAssistedColumnValues = shardingEncryptor instanceof ShardingQueryAssistedEncryptor 
+                ? getEncryptAssistedColumnValues((ShardingQueryAssistedEncryptor) shardingEncryptor, originalColumnValues) : new LinkedList<Comparable<?>>();
+        encryptParameters(getPositionIndexesFromUpdateItem(encryptColumnToken), encryptColumnValues);
+        fillParameters(encryptColumnToken, encryptAssistedColumnValues);
+        return shardingEncryptor instanceof ShardingQueryAssistedEncryptor ? getEncryptUpdateItemColumnPlaceholder(encryptColumnToken, encryptColumnValues, encryptAssistedColumnValues) 
+                : getEncryptUpdateItemColumnPlaceholder(encryptColumnToken, encryptColumnValues);
+    }
+    
+    private List<Comparable<?>> getOriginalColumnValuesFromUpdateItem(final EncryptColumnToken encryptColumnToken) {
+        List<Comparable<?>> result = new LinkedList<>();
+        SQLExpression sqlExpression = ((DMLStatement) sqlStatement).getUpdateColumnValues().get(encryptColumnToken.getColumn());
+        if (sqlExpression instanceof SQLPlaceholderExpression) {
+            result.add(parameters.get(((SQLPlaceholderExpression) sqlExpression).getIndex()).toString());
+        } else if (sqlExpression instanceof SQLTextExpression) {
+            result.add(((SQLTextExpression) sqlExpression).getText());
+        } else if (sqlExpression instanceof SQLNumberExpression) {
+            result.add((Comparable) ((SQLNumberExpression) sqlExpression).getNumber());
+        }
+        return result;
+    }
+    
+    private Map<Integer, Integer> getPositionIndexesFromUpdateItem(final EncryptColumnToken encryptColumnToken) {
+        SQLExpression result = ((DMLStatement) sqlStatement).getUpdateColumnValues().get(encryptColumnToken.getColumn());
+        if (result instanceof SQLPlaceholderExpression) {
+            return Collections.singletonMap(0, ((SQLPlaceholderExpression) result).getIndex());
+        }
+        return new LinkedHashMap<>();
+    }
+    
+    private void fillParameters(final EncryptColumnToken encryptColumnToken, final List<Comparable<?>> encryptAssistedColumnValues) {
+        if (encryptAssistedColumnValues.isEmpty()) {
+            return;
+        }
+        if (!isUsingParameters(encryptColumnToken)) {
+            return;
+        }
+        parameters.add(getEncryptAssistedParameterIndex(encryptColumnToken), encryptAssistedColumnValues.get(0));
+    }
+    
+    private boolean isUsingParameters(final EncryptColumnToken encryptColumnToken) {
+        return ((DMLStatement) sqlStatement).getUpdateColumnValues().get(encryptColumnToken.getColumn()) instanceof SQLPlaceholderExpression;
+    }
+    
+    private int getEncryptAssistedParameterIndex(final EncryptColumnToken encryptColumnToken) {
+        return getPositionIndexesFromUpdateItem(encryptColumnToken).values().iterator().next() + 1;
+    }
+    
+    private EncryptUpdateItemColumnPlaceholder getEncryptUpdateItemColumnPlaceholder(final EncryptColumnToken encryptColumnToken,
+                                                                                     final List<Comparable<?>> encryptColumnValues, final List<Comparable<?>> encryptAssistedColumnValues) {
+        if (isUsingParameters(encryptColumnToken)) {
+            return new EncryptUpdateItemColumnPlaceholder(encryptColumnToken.getColumn().getTableName(), encryptColumnToken.getColumn().getName(), getEncryptAssistedColumnName(encryptColumnToken));
+        }
+        return new EncryptUpdateItemColumnPlaceholder(encryptColumnToken.getColumn().getTableName(), encryptColumnToken.getColumn().getName(),
+                getPositionValues(Collections.singletonList(0), encryptColumnValues).values().iterator().next(), getEncryptAssistedColumnName(encryptColumnToken), encryptAssistedColumnValues.get(0));
+    }
+    
+    private String getEncryptAssistedColumnName(final EncryptColumnToken encryptColumnToken) {
+        Column column = encryptColumnToken.getColumn();
+        Optional<String> result = shardingRule.getTableRule(column.getTableName()).getShardingEncryptorStrategy().getAssistedQueryColumn(column.getName());
+        Preconditions.checkArgument(result.isPresent(), "Can not find the assistedColumn of %s", encryptColumnToken.getColumn().getName());
+        return result.get();
+    }
+    
+    private EncryptUpdateItemColumnPlaceholder getEncryptUpdateItemColumnPlaceholder(final EncryptColumnToken encryptColumnToken, final List<Comparable<?>> encryptColumnValues) {
+        if (isUsingParameters(encryptColumnToken)) {
+            return new EncryptUpdateItemColumnPlaceholder(encryptColumnToken.getColumn().getTableName(), encryptColumnToken.getColumn().getName());
+        }
+        return new EncryptUpdateItemColumnPlaceholder(encryptColumnToken.getColumn().getTableName(), encryptColumnToken.getColumn().getName(), 
+                getPositionValues(Collections.singletonList(0), encryptColumnValues).values().iterator().next());
     }
     
     private void appendRest(final SQLBuilder sqlBuilder, final int count, final int beginPosition) {

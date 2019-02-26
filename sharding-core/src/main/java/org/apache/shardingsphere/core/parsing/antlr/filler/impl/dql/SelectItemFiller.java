@@ -17,7 +17,6 @@
 
 package org.apache.shardingsphere.core.parsing.antlr.filler.impl.dql;
 
-import com.google.common.base.Optional;
 import org.apache.shardingsphere.core.metadata.table.ShardingTableMetaData;
 import org.apache.shardingsphere.core.parsing.antlr.filler.SQLStatementFiller;
 import org.apache.shardingsphere.core.parsing.antlr.sql.segment.SQLSegment;
@@ -40,6 +39,8 @@ import org.apache.shardingsphere.core.parsing.parser.token.TableToken;
 import org.apache.shardingsphere.core.rule.ShardingRule;
 import org.apache.shardingsphere.core.util.SQLUtil;
 
+import com.google.common.base.Optional;
+
 /**
  * Select item filler.
  *
@@ -55,11 +56,11 @@ public final class SelectItemFiller implements SQLStatementFiller {
         }
         SelectStatement selectStatement = (SelectStatement) sqlStatement;
         if (sqlSegment instanceof StarSelectItemSegment) {
-            fillStarSelectItemSegment((StarSelectItemSegment) sqlSegment, selectStatement);
+            fillStarSelectItemSegment(shardingTableMetaData, (StarSelectItemSegment) sqlSegment, selectStatement);
             return;
         }
         if (sqlSegment instanceof ColumnSelectItemSegment) {
-            fillColumnSelectItemSegment((ColumnSelectItemSegment) sqlSegment, selectStatement);
+            fillColumnSelectItemSegment(shardingTableMetaData, (ColumnSelectItemSegment) sqlSegment, selectStatement);
             return;
         }
         if (sqlSegment instanceof ExpressionSelectItemSegment) {
@@ -75,25 +76,27 @@ public final class SelectItemFiller implements SQLStatementFiller {
         }
     }
     
-    private void fillStarSelectItemSegment(final StarSelectItemSegment selectItemSegment, final SelectStatement selectStatement) {
+    private void fillStarSelectItemSegment(final ShardingTableMetaData shardingTableMetaData, final StarSelectItemSegment selectItemSegment, final SelectStatement selectStatement) {
         selectStatement.setContainStar(true);
         Optional<String> owner = selectItemSegment.getOwner();
         selectStatement.getItems().add(new StarSelectItem(owner.orNull()));
-        if (!owner.isPresent()) {
-            return;
-        }
-        Optional<Table> table = selectStatement.getTables().find(owner.get());
-        if (table.isPresent() && !table.get().getAlias().isPresent()) {
-            selectStatement.addSQLToken(new TableToken(selectItemSegment.getStartIndex(), 
-                    0, SQLUtil.getExactlyValue(owner.get()), SQLUtil.getLeftDelimiter(owner.get()), SQLUtil.getRightDelimiter(owner.get())));
+        if (owner.isPresent()) {
+            Optional<Table> table = selectStatement.getTables().find(owner.get());
+            if (table.isPresent() && !table.get().getAlias().isPresent() && shardingTableMetaData.containsTable(table.get().getName())) {
+                selectStatement.addSQLToken(new TableToken(selectItemSegment.getStartIndex(), 
+                        0, SQLUtil.getExactlyValue(owner.get()), SQLUtil.getLeftDelimiter(owner.get()), SQLUtil.getRightDelimiter(owner.get())));
+            }
         }
     }
     
-    private void fillColumnSelectItemSegment(final ColumnSelectItemSegment selectItemSegment, final SelectStatement selectStatement) {
+    private void fillColumnSelectItemSegment(final ShardingTableMetaData shardingTableMetaData, final ColumnSelectItemSegment selectItemSegment, final SelectStatement selectStatement) {
         Optional<String> owner = selectItemSegment.getOwner();
-        if (owner.isPresent() && selectStatement.getTables().getTableNames().contains(owner.get())) {
-            selectStatement.addSQLToken(new TableToken(selectItemSegment.getStartIndex(), 
-                    0, SQLUtil.getExactlyValue(owner.get()), SQLUtil.getLeftDelimiter(owner.get()), SQLUtil.getRightDelimiter(owner.get())));
+        if (owner.isPresent()) {
+            Optional<Table> table = selectStatement.getTables().find(owner.get());
+            if (table.isPresent() && !table.get().getAlias().isPresent() && shardingTableMetaData.containsTable(table.get().getName())) {
+                selectStatement.addSQLToken(new TableToken(selectItemSegment.getStartIndex(), 
+                        0, SQLUtil.getExactlyValue(owner.get()), SQLUtil.getLeftDelimiter(owner.get()), SQLUtil.getRightDelimiter(owner.get())));
+            }
         }
         selectStatement.getItems().add(new CommonSelectItem(selectItemSegment.getQualifiedName(), selectItemSegment.getAlias()));
     }

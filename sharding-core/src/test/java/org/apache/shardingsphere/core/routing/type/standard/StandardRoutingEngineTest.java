@@ -17,15 +17,17 @@
 
 package org.apache.shardingsphere.core.routing.type.standard;
 
-import org.apache.shardingsphere.api.algorithm.sharding.ListShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
-import org.apache.shardingsphere.api.config.rule.ShardingRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
-import org.apache.shardingsphere.api.config.strategy.InlineShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.config.sharding.ShardingRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.strategy.InlineShardingStrategyConfiguration;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingCondition;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingConditions;
+import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
+import org.apache.shardingsphere.core.parsing.parser.sql.SQLStatement;
 import org.apache.shardingsphere.core.routing.type.RoutingResult;
 import org.apache.shardingsphere.core.routing.type.TableUnit;
+import org.apache.shardingsphere.core.routing.value.ListRouteValue;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 import org.apache.shardingsphere.core.rule.ShardingRule;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,6 +40,7 @@ import java.util.List;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.mock;
 
 public final class StandardRoutingEngineTest {
     
@@ -46,21 +49,18 @@ public final class StandardRoutingEngineTest {
     @Before
     public void setEngineContext() {
         ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
-        TableRuleConfiguration tableRuleConfig = new TableRuleConfiguration();
-        tableRuleConfig.setLogicTable("t_order");
-        tableRuleConfig.setActualDataNodes("ds_${0..1}.t_order_${0..1}");
-        shardingRuleConfig.getTableRuleConfigs().add(tableRuleConfig);
+        shardingRuleConfig.getTableRuleConfigs().add(new TableRuleConfiguration("t_order", "ds_${0..1}.t_order_${0..1}"));
         shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(new InlineShardingStrategyConfiguration("user_id", "ds_${user_id % 2}"));
         shardingRuleConfig.setDefaultTableShardingStrategyConfig(new InlineShardingStrategyConfiguration("order_id", "t_order_${order_id % 2}"));
         List<ShardingCondition> shardingConditions = new ArrayList<>();
-        ShardingValue shardingValue1 = new ListShardingValue<>("t_order", "user_id", Collections.singleton(1L));
-        ShardingValue shardingValue2 = new ListShardingValue<>("t_order", "order_id", Collections.singleton(1L));
+        RouteValue shardingValue1 = new ListRouteValue<>(new Column("user_id", "t_order"), Collections.singleton(1L));
+        RouteValue shardingValue2 = new ListRouteValue<>(new Column("order_id", "t_order"), Collections.singleton(1L));
         ShardingCondition shardingCondition = new ShardingCondition();
         shardingCondition.getShardingValues().add(shardingValue1);
         shardingCondition.getShardingValues().add(shardingValue2);
         shardingConditions.add(shardingCondition);
         ShardingRule shardingRule = new ShardingRule(shardingRuleConfig, Arrays.asList("ds_0", "ds_1"));
-        standardRoutingEngine = new StandardRoutingEngine(shardingRule, "t_order", new ShardingConditions(shardingConditions));
+        standardRoutingEngine = new StandardRoutingEngine(mock(SQLStatement.class), shardingRule, "t_order", new ShardingConditions(shardingConditions));
     }
     
     @Test

@@ -20,14 +20,14 @@ package org.apache.shardingsphere.shardingproxy.backend.text.admin;
 import lombok.RequiredArgsConstructor;
 import org.apache.shardingsphere.core.parsing.parser.dialect.mysql.statement.UseStatement;
 import org.apache.shardingsphere.core.util.SQLUtil;
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendConnection;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.error.ErrorResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.apache.shardingsphere.shardingproxy.backend.text.TextProtocolBackendHandler;
 import org.apache.shardingsphere.shardingproxy.runtime.GlobalRegistry;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.constant.ServerErrorCode;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
+import org.apache.shardingsphere.shardingproxy.transport.mysql.constant.MySQLServerErrorCode;
 
 /**
  * Use database backend handler.
@@ -43,13 +43,13 @@ public final class UseDatabaseBackendHandler implements TextProtocolBackendHandl
     private final BackendConnection backendConnection;
     
     @Override
-    public CommandResponsePackets execute() {
+    public BackendResponse execute() {
         String schema = SQLUtil.getExactlyValue(useStatement.getSchema());
         if (!GlobalRegistry.getInstance().schemaExists(schema)) {
-            return new CommandResponsePackets(new ErrPacket(1, ServerErrorCode.ER_BAD_DB_ERROR, schema));
+            return new ErrorResponse(MySQLServerErrorCode.ER_BAD_DB_ERROR, schema);
         }
         backendConnection.setCurrentSchema(schema);
-        return new CommandResponsePackets(new OKPacket(1));
+        return new UpdateResponse();
     }
     
     @Override
@@ -58,7 +58,7 @@ public final class UseDatabaseBackendHandler implements TextProtocolBackendHandl
     }
     
     @Override
-    public ResultPacket getResultValue() {
+    public QueryData getQueryData() {
         return null;
     }
 }

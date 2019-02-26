@@ -17,22 +17,18 @@
 
 package org.apache.shardingsphere.core.optimizer.query;
 
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
+import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 
 /**
  * Always false sharding value.
  *
  * @author zhangliang
  */
-public final class AlwaysFalseShardingValue implements ShardingValue {
+public final class AlwaysFalseShardingValue implements RouteValue {
     
     @Override
-    public String getLogicTableName() {
-        return "";
-    }
-    
-    @Override
-    public String getColumnName() {
-        return "";
+    public Column getColumn() {
+        return new Column("", "");
     }
 }

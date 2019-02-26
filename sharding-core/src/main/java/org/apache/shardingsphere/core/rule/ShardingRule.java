@@ -22,20 +22,22 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import lombok.Getter;
-import org.apache.shardingsphere.api.config.KeyGeneratorConfiguration;
-import org.apache.shardingsphere.api.config.rule.MasterSlaveRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.ShardingRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
-import org.apache.shardingsphere.api.config.strategy.ShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.MasterSlaveRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.KeyGeneratorConfiguration;
+import org.apache.shardingsphere.api.config.sharding.ShardingRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.strategy.ShardingStrategyConfiguration;
+import org.apache.shardingsphere.core.encrypt.ShardingEncryptorEngine;
 import org.apache.shardingsphere.core.exception.ShardingConfigurationException;
 import org.apache.shardingsphere.core.exception.ShardingException;
-import org.apache.shardingsphere.core.keygen.generator.ShardingKeyGenerator;
-import org.apache.shardingsphere.core.keygen.generator.impl.SnowflakeShardingKeyGenerator;
+import org.apache.shardingsphere.core.keygen.ShardingKeyGeneratorFactory;
+import org.apache.shardingsphere.core.parsing.cache.ParsingResultCache;
 import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
 import org.apache.shardingsphere.core.routing.strategy.ShardingStrategy;
 import org.apache.shardingsphere.core.routing.strategy.ShardingStrategyFactory;
 import org.apache.shardingsphere.core.routing.strategy.hint.HintShardingStrategy;
 import org.apache.shardingsphere.core.routing.strategy.none.NoneShardingStrategy;
+import org.apache.shardingsphere.spi.algorithm.keygen.ShardingKeyGenerator;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,7 +46,7 @@ import java.util.List;
 import java.util.TreeSet;
 
 /**
- * Databases and tables sharding rule configuration.
+ * Databases and tables sharding rule.
  *
  * @author zhangliang
  * @author maxiaoguang
@@ -71,6 +73,10 @@ public class ShardingRule {
     
     private final Collection<MasterSlaveRule> masterSlaveRules;
     
+    private final ShardingEncryptorEngine shardingEncryptorEngine;
+    
+    private final ParsingResultCache parsingResultCache = new ParsingResultCache();
+    
     public ShardingRule(final ShardingRuleConfiguration shardingRuleConfig, final Collection<String> dataSourceNames) {
         Preconditions.checkArgument(!dataSourceNames.isEmpty(), "Data sources cannot be empty.");
         this.shardingRuleConfig = shardingRuleConfig;
@@ -82,6 +88,7 @@ public class ShardingRule {
         defaultTableShardingStrategy = createDefaultShardingStrategy(shardingRuleConfig.getDefaultTableShardingStrategyConfig());
         defaultShardingKeyGenerator = createDefaultKeyGenerator(shardingRuleConfig.getDefaultKeyGeneratorConfig());
         masterSlaveRules = createMasterSlaveRules(shardingRuleConfig.getMasterSlaveRuleConfigs());
+        shardingEncryptorEngine = new ShardingEncryptorEngine(tableRules);
     }
     
     private Collection<TableRule> createTableRules(final ShardingRuleConfiguration shardingRuleConfig) {
@@ -118,7 +125,13 @@ public class ShardingRule {
     }
     
     private ShardingKeyGenerator createDefaultKeyGenerator(final KeyGeneratorConfiguration keyGeneratorConfiguration) {
-        return null == keyGeneratorConfiguration ? new SnowflakeShardingKeyGenerator() : keyGeneratorConfiguration.getKeyGenerator();
+        ShardingKeyGeneratorFactory factory = ShardingKeyGeneratorFactory.getInstance();
+        return containsKeyGeneratorConfiguration(keyGeneratorConfiguration)
+                ? factory.newAlgorithm(keyGeneratorConfiguration.getType(), keyGeneratorConfiguration.getProperties()) : factory.newAlgorithm();
+    }
+    
+    private boolean containsKeyGeneratorConfiguration(final KeyGeneratorConfiguration keyGeneratorConfiguration) {
+        return null != keyGeneratorConfiguration && !Strings.isNullOrEmpty(keyGeneratorConfiguration.getType());
     }
     
     private Collection<MasterSlaveRule> createMasterSlaveRules(final Collection<MasterSlaveRuleConfiguration> masterSlaveRuleConfigurations) {
@@ -361,6 +374,22 @@ public class ShardingRule {
             }
         }
         throw new ShardingConfigurationException("Cannot find logic table name with logic index name: '%s'", logicIndexName);
+    }
+    
+    /**
+     * Get logic table names base on actual table name.
+     *
+     * @param actualTableName actual table name
+     * @return logic table name
+     */
+    public Collection<String> getLogicTableNames(final String actualTableName) {
+        Collection<String> result = new LinkedList<>();
+        for (TableRule each : tableRules) {
+            if (each.isExisted(actualTableName)) {
+                result.add(each.getLogicTable());
+            }
+        }
+        return result;
     }
     
     /**

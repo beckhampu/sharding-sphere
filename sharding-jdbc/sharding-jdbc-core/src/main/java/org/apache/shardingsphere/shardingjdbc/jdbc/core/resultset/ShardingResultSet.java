@@ -40,6 +40,7 @@ import java.util.List;
  * Result that support sharding.
  *
  * @author zhangliang
+ * @author panjuan
  */
 public final class ShardingResultSet extends AbstractResultSetAdapter {
     

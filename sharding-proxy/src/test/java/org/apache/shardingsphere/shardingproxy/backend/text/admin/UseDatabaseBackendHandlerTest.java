@@ -20,9 +20,9 @@ package org.apache.shardingsphere.shardingproxy.backend.text.admin;
 import org.apache.shardingsphere.core.parsing.parser.dialect.mysql.statement.UseStatement;
 import org.apache.shardingsphere.shardingproxy.backend.MockGlobalRegistryUtil;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendConnection;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.error.ErrorResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,9 +53,9 @@ public final class UseDatabaseBackendHandlerTest {
         UseStatement useStatement = mock(UseStatement.class);
         when(useStatement.getSchema()).thenReturn("schema_0");
         UseDatabaseBackendHandler useSchemaBackendHandler = new UseDatabaseBackendHandler(useStatement, backendConnection);
-        CommandResponsePackets actual = useSchemaBackendHandler.execute();
+        BackendResponse actual = useSchemaBackendHandler.execute();
         verify(backendConnection).setCurrentSchema(anyString());
-        assertThat(actual.getHeadPacket(), instanceOf(OKPacket.class));
+        assertThat(actual, instanceOf(UpdateResponse.class));
     }
     
     @Test
@@ -63,8 +63,8 @@ public final class UseDatabaseBackendHandlerTest {
         UseStatement useStatement = mock(UseStatement.class);
         when(useStatement.getSchema()).thenReturn("not_exist");
         UseDatabaseBackendHandler useSchemaBackendHandler = new UseDatabaseBackendHandler(useStatement, backendConnection);
-        CommandResponsePackets actual = useSchemaBackendHandler.execute();
-        assertThat(actual.getHeadPacket(), instanceOf(ErrPacket.class));
+        BackendResponse actual = useSchemaBackendHandler.execute();
+        assertThat(actual, instanceOf(ErrorResponse.class));
         verify(backendConnection, times(0)).setCurrentSchema(anyString());
     }
 }

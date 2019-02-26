@@ -18,14 +18,13 @@
 package org.apache.shardingsphere.shardingproxy.backend.text.admin;
 
 import lombok.SneakyThrows;
-import org.apache.shardingsphere.core.constant.DatabaseType;
 import org.apache.shardingsphere.shardingproxy.backend.MockGlobalRegistryUtil;
 import org.apache.shardingsphere.shardingproxy.backend.communication.DatabaseCommunicationEngine;
 import org.apache.shardingsphere.shardingproxy.backend.communication.DatabaseCommunicationEngineFactory;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendConnection;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.apache.shardingsphere.shardingproxy.runtime.schema.LogicSchema;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 import org.apache.shardingsphere.transaction.core.TransactionType;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +37,6 @@ import java.lang.reflect.Field;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -54,33 +52,32 @@ public final class UnicastBackendHandlerTest {
     @Before
     public void setUp() {
         MockGlobalRegistryUtil.setLogicSchemas("schema", 10);
-        setUnderlyingHandler(new CommandResponsePackets(new OKPacket(1)));
+        setUnderlyingHandler(new UpdateResponse());
     }
     
     @Test
     public void assertExecuteWhileSchemaIsNull() {
-        UnicastBackendHandler backendHandler = new UnicastBackendHandler(1, "show variable like %s", backendConnection, DatabaseType.MySQL);
+        UnicastBackendHandler backendHandler = new UnicastBackendHandler("show variable like %s", backendConnection);
         setDatabaseCommunicationEngine(backendHandler);
-        CommandResponsePackets actual = backendHandler.execute();
-        assertThat(actual.getHeadPacket(), instanceOf(OKPacket.class));
+        BackendResponse actual = backendHandler.execute();
+        assertThat(actual, instanceOf(UpdateResponse.class));
         backendHandler.execute();
     }
     
     @Test
     public void assertExecuteWhileSchemaNotNull() {
         backendConnection.setCurrentSchema("schema_0");
-        UnicastBackendHandler backendHandler = new UnicastBackendHandler(1, "show variable like %s", backendConnection, DatabaseType.MySQL);
+        UnicastBackendHandler backendHandler = new UnicastBackendHandler("show variable like %s", backendConnection);
         setDatabaseCommunicationEngine(backendHandler);
-        CommandResponsePackets actual = backendHandler.execute();
-        assertThat(actual.getHeadPacket(), instanceOf(OKPacket.class));
+        BackendResponse actual = backendHandler.execute();
+        assertThat(actual, instanceOf(UpdateResponse.class));
         backendHandler.execute();
     }
     
-    private void setUnderlyingHandler(final CommandResponsePackets commandResponsePackets) {
+    private void setUnderlyingHandler(final BackendResponse backendResponse) {
         DatabaseCommunicationEngine databaseCommunicationEngine = mock(DatabaseCommunicationEngine.class);
-        when(databaseCommunicationEngine.execute()).thenReturn(commandResponsePackets);
-        when(databaseCommunicationEngineFactory.newTextProtocolInstance(
-                (LogicSchema) any(), anyInt(), anyString(), (BackendConnection) any(), (DatabaseType) any())).thenReturn(databaseCommunicationEngine);
+        when(databaseCommunicationEngine.execute()).thenReturn(backendResponse);
+        when(databaseCommunicationEngineFactory.newTextProtocolInstance((LogicSchema) any(), anyString(), (BackendConnection) any())).thenReturn(databaseCommunicationEngine);
     }
     
     @SneakyThrows

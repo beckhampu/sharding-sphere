@@ -20,9 +20,6 @@ package org.apache.shardingsphere.core.optimizer.query;
 import com.google.common.collect.BoundType;
 import com.google.common.collect.Range;
 import lombok.RequiredArgsConstructor;
-import org.apache.shardingsphere.api.algorithm.sharding.ListShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.RangeShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
 import org.apache.shardingsphere.core.constant.ShardingOperator;
 import org.apache.shardingsphere.core.exception.ShardingException;
 import org.apache.shardingsphere.core.optimizer.OptimizeEngine;
@@ -32,6 +29,9 @@ import org.apache.shardingsphere.core.parsing.parser.context.condition.AndCondit
 import org.apache.shardingsphere.core.parsing.parser.context.condition.Column;
 import org.apache.shardingsphere.core.parsing.parser.context.condition.Condition;
 import org.apache.shardingsphere.core.parsing.parser.context.condition.OrCondition;
+import org.apache.shardingsphere.core.routing.value.BetweenRouteValue;
+import org.apache.shardingsphere.core.routing.value.ListRouteValue;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -64,7 +64,7 @@ public final class QueryOptimizeEngine implements OptimizeEngine {
         ShardingCondition result = new ShardingCondition();
         for (Entry<Column, List<Condition>> entry : conditionsMap.entrySet()) {
             try {
-                ShardingValue shardingValue = optimize(entry.getKey(), entry.getValue());
+                RouteValue shardingValue = optimize(entry.getKey(), entry.getValue());
                 if (shardingValue instanceof AlwaysFalseShardingValue) {
                     return new AlwaysFalseShardingCondition();
                 }
@@ -76,7 +76,7 @@ public final class QueryOptimizeEngine implements OptimizeEngine {
         return result;
     }
     
-    private ShardingValue optimize(final Column column, final List<Condition> conditions) {
+    private RouteValue optimize(final Column column, final List<Condition> conditions) {
         List<Comparable<?>> listValue = null;
         Range<Comparable<?>> rangeValue = null;
         for (Condition each : conditions) {
@@ -96,13 +96,13 @@ public final class QueryOptimizeEngine implements OptimizeEngine {
             }
         }
         if (null == listValue) {
-            return new RangeShardingValue<>(column.getTableName(), column.getName(), rangeValue);
+            return new BetweenRouteValue<>(column, rangeValue);
         }
         if (null == rangeValue) {
-            return new ListShardingValue<>(column.getTableName(), column.getName(), listValue);
+            return new ListRouteValue<>(column, listValue);
         }
         listValue = optimize(listValue, rangeValue);
-        return listValue.isEmpty() ? new AlwaysFalseShardingValue() : new ListShardingValue<>(column.getTableName(), column.getName(), listValue);
+        return listValue.isEmpty() ? new AlwaysFalseShardingValue() : new ListRouteValue<>(column, listValue);
     }
     
     private List<Comparable<?>> optimize(final List<Comparable<?>> value1, final List<Comparable<?>> value2) {

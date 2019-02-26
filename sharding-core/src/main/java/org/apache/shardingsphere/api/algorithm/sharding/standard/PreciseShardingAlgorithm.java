@@ -17,7 +17,6 @@
 
 package org.apache.shardingsphere.api.algorithm.sharding.standard;
 
-import org.apache.shardingsphere.api.algorithm.sharding.PreciseShardingValue;
 import org.apache.shardingsphere.core.routing.strategy.ShardingAlgorithm;
 
 import java.util.Collection;

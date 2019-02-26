@@ -19,10 +19,12 @@ package org.apache.shardingsphere.core.routing.strategy.hint;
 
 import com.google.common.base.Preconditions;
 import lombok.Getter;
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
 import org.apache.shardingsphere.api.algorithm.sharding.hint.HintShardingAlgorithm;
-import org.apache.shardingsphere.api.config.strategy.HintShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.algorithm.sharding.hint.HintShardingValue;
+import org.apache.shardingsphere.api.config.sharding.strategy.HintShardingStrategyConfiguration;
 import org.apache.shardingsphere.core.routing.strategy.ShardingStrategy;
+import org.apache.shardingsphere.core.routing.value.ListRouteValue;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 
 import java.util.Collection;
 import java.util.TreeSet;
@@ -45,9 +47,12 @@ public final class HintShardingStrategy implements ShardingStrategy {
         shardingAlgorithm = hintShardingStrategyConfig.getShardingAlgorithm();
     }
     
+    @SuppressWarnings("unchecked")
     @Override
-    public Collection<String> doSharding(final Collection<String> availableTargetNames, final Collection<ShardingValue> shardingValues) {
-        Collection<String> shardingResult = shardingAlgorithm.doSharding(availableTargetNames, shardingValues.iterator().next());
+    public Collection<String> doSharding(final Collection<String> availableTargetNames, final Collection<RouteValue> shardingValues) {
+        ListRouteValue shardingValue = (ListRouteValue) shardingValues.iterator().next();
+        Collection<String> shardingResult = shardingAlgorithm.doSharding(availableTargetNames, 
+                new HintShardingValue(shardingValue.getColumn().getTableName(), shardingValue.getColumn().getName(), shardingValue.getValues()));
         Collection<String> result = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         result.addAll(shardingResult);
         return result;

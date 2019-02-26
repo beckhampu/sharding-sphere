@@ -18,9 +18,6 @@
 package org.apache.shardingsphere.core.optimizer;
 
 import com.google.common.collect.Range;
-import org.apache.shardingsphere.api.algorithm.sharding.ListShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.RangeShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingCondition;
 import org.apache.shardingsphere.core.optimizer.condition.ShardingConditions;
 import org.apache.shardingsphere.core.optimizer.query.QueryOptimizeEngine;
@@ -30,6 +27,9 @@ import org.apache.shardingsphere.core.parsing.parser.context.condition.Condition
 import org.apache.shardingsphere.core.parsing.parser.context.condition.OrCondition;
 import org.apache.shardingsphere.core.parsing.parser.expression.SQLExpression;
 import org.apache.shardingsphere.core.parsing.parser.expression.SQLNumberExpression;
+import org.apache.shardingsphere.core.routing.value.BetweenRouteValue;
+import org.apache.shardingsphere.core.routing.value.ListRouteValue;
+import org.apache.shardingsphere.core.routing.value.RouteValue;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 
@@ -96,8 +96,8 @@ public final class QueryOptimizeEngineTest {
         ShardingConditions shardingConditions = new QueryOptimizeEngine(orCondition, Collections.emptyList()).optimize();
         assertFalse(shardingConditions.isAlwaysFalse());
         ShardingCondition shardingCondition = shardingConditions.getShardingConditions().get(0);
-        ShardingValue shardingValue = shardingCondition.getShardingValues().get(0);
-        Collection<Comparable<?>> values = ((ListShardingValue<Comparable<?>>) shardingValue).getValues();
+        RouteValue shardingValue = shardingCondition.getShardingValues().get(0);
+        Collection<Comparable<?>> values = ((ListRouteValue<Comparable<?>>) shardingValue).getValues();
         assertThat(values.size(), is(1));
         assertTrue(values.containsAll(Collections.singleton(1)));
     }
@@ -115,8 +115,8 @@ public final class QueryOptimizeEngineTest {
         ShardingConditions shardingConditions = new QueryOptimizeEngine(orCondition, Collections.emptyList()).optimize();
         assertFalse(shardingConditions.isAlwaysFalse());
         ShardingCondition shardingCondition = shardingConditions.getShardingConditions().get(0);
-        ShardingValue shardingValue = shardingCondition.getShardingValues().get(0);
-        Range<Comparable<?>> values = ((RangeShardingValue<Comparable<?>>) shardingValue).getValueRange();
+        RouteValue shardingValue = shardingCondition.getShardingValues().get(0);
+        Range<Comparable<?>> values = ((BetweenRouteValue<Comparable<?>>) shardingValue).getValueRange();
         assertThat(values.lowerEndpoint(), CoreMatchers.<Comparable>is(1));
         assertThat(values.upperEndpoint(), CoreMatchers.<Comparable>is(2));
     }
@@ -134,8 +134,8 @@ public final class QueryOptimizeEngineTest {
         ShardingConditions shardingConditions = new QueryOptimizeEngine(orCondition, Collections.emptyList()).optimize();
         assertFalse(shardingConditions.isAlwaysFalse());
         ShardingCondition shardingCondition = shardingConditions.getShardingConditions().get(0);
-        ShardingValue shardingValue = shardingCondition.getShardingValues().get(0);
-        Collection<Comparable<?>> values = ((ListShardingValue<Comparable<?>>) shardingValue).getValues();
+        RouteValue shardingValue = shardingCondition.getShardingValues().get(0);
+        Collection<Comparable<?>> values = ((ListRouteValue<Comparable<?>>) shardingValue).getValues();
         assertThat(values.size(), is(2));
         assertTrue(values.containsAll(Arrays.asList(1, 2)));
     }

@@ -17,25 +17,16 @@
 
 package org.apache.shardingsphere.api;
 
-import org.apache.shardingsphere.api.algorithm.common.ShardingStrategyTest;
-import org.apache.shardingsphere.api.algorithm.masterslave.RandomMasterSlaveLoadBalanceAlgorithmTest;
-import org.apache.shardingsphere.api.algorithm.masterslave.RoundRobinMasterSlaveLoadBalanceAlgorithmTest;
-import org.apache.shardingsphere.api.algorithm.sharding.DatabaseShardingStrategyTest;
-import org.apache.shardingsphere.api.algorithm.table.TableShardingStrategyTest;
-import org.apache.shardingsphere.api.config.ShardingKeyGeneratorConfigurationTest;
+import org.apache.shardingsphere.api.config.AllConfigTests;
+import org.apache.shardingsphere.api.hint.AllHintTests;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-        ShardingStrategyTest.class, 
-        DatabaseShardingStrategyTest.class, 
-        TableShardingStrategyTest.class, 
-        RoundRobinMasterSlaveLoadBalanceAlgorithmTest.class, 
-        RandomMasterSlaveLoadBalanceAlgorithmTest.class, 
-        HintManagerTest.class, 
-        ShardingKeyGeneratorConfigurationTest.class
-    })
+        AllConfigTests.class,
+        AllHintTests.class
+})
 public final class AllAPITests {
 }

@@ -19,21 +19,16 @@ package org.apache.shardingsphere.shardingproxy.backend.text.admin;
 
 import org.apache.shardingsphere.core.merger.MergedResult;
 import org.apache.shardingsphere.core.merger.dal.show.ShowDatabasesMergedResult;
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryHeader;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryResponse;
 import org.apache.shardingsphere.shardingproxy.backend.text.TextProtocolBackendHandler;
 import org.apache.shardingsphere.shardingproxy.runtime.GlobalRegistry;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.constant.ColumnType;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.query.ColumnDefinition41Packet;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.query.FieldCountPacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.query.QueryResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.EofPacket;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.sql.Types;
+import java.util.Collections;
 
 /**
  * Show databases backend handler.
@@ -45,24 +40,10 @@ public final class ShowDatabasesBackendHandler implements TextProtocolBackendHan
     
     private MergedResult mergedResult;
     
-    private int currentSequenceId;
-    
-    private int columnCount;
-    
-    private final List<ColumnType> columnTypes = new LinkedList<>();
-    
     @Override
-    public CommandResponsePackets execute() {
+    public BackendResponse execute() {
         mergedResult = new ShowDatabasesMergedResult(GlobalRegistry.getInstance().getSchemaNames());
-        int sequenceId = 0;
-        FieldCountPacket fieldCountPacket = new FieldCountPacket(++sequenceId, 1);
-        Collection<ColumnDefinition41Packet> columnDefinition41Packets = new ArrayList<>(1);
-        columnDefinition41Packets.add(new ColumnDefinition41Packet(++sequenceId, "", "", "", "Database", "", 100, ColumnType.MYSQL_TYPE_VARCHAR, 0));
-        QueryResponsePackets result = new QueryResponsePackets(fieldCountPacket, columnDefinition41Packets, new EofPacket(++sequenceId));
-        currentSequenceId = result.getPackets().size();
-        columnCount = result.getColumnCount();
-        columnTypes.addAll(result.getColumnTypes());
-        return result;
+        return new QueryResponse(Collections.singletonList(new QueryHeader("", "", "", "Database", 100, Types.VARCHAR, 0)));
     }
     
     @Override
@@ -71,11 +52,7 @@ public final class ShowDatabasesBackendHandler implements TextProtocolBackendHan
     }
     
     @Override
-    public ResultPacket getResultValue() throws SQLException {
-        List<Object> data = new ArrayList<>(columnCount);
-        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-            data.add(mergedResult.getValue(columnIndex, Object.class));
-        }
-        return new ResultPacket(++currentSequenceId, data, columnCount, columnTypes);
+    public QueryData getQueryData() throws SQLException {
+        return new QueryData(Collections.singletonList(Types.VARCHAR), Collections.singletonList(mergedResult.getValue(1, Object.class)));
     }
 }

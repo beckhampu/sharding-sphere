@@ -18,45 +18,18 @@
 package org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.execute.response;
 
 import lombok.Getter;
-import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.execute.response.unit.ExecuteResponseUnit;
-import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.execute.response.unit.ExecuteUpdateResponseUnit;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
-
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Execute update response.
  * 
  * @author zhangliang
  */
+@RequiredArgsConstructor
+@Getter
 public final class ExecuteUpdateResponse implements ExecuteResponse {
     
-    @Getter
-    private final List<OKPacket> packets = new LinkedList<>();
+    private final int updateCount;
     
-    public ExecuteUpdateResponse(final Collection<ExecuteResponseUnit> responseUnits) {
-        for (ExecuteResponseUnit each : responseUnits) {
-            packets.add(((ExecuteUpdateResponseUnit) each).getOkPacket());
-        }
-    }
-    
-    /**
-     * Merge packets.
-     * 
-     * @return merged packet.
-     */
-    public CommandResponsePackets merge() {
-        int affectedRows = 0;
-        long lastInsertId = 0;
-        for (OKPacket each : packets) {
-            affectedRows += each.getAffectedRows();
-            if (each.getLastInsertId() > lastInsertId) {
-                lastInsertId = each.getLastInsertId();
-            }
-        }
-        return new CommandResponsePackets(new OKPacket(1, affectedRows, lastInsertId));
-    }
+    private final long lastInsertId;
 }

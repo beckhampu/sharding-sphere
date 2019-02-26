@@ -20,13 +20,13 @@ package org.apache.shardingsphere.core.routing;
 import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Lists;
-import org.apache.shardingsphere.api.HintManager;
-import org.apache.shardingsphere.api.config.rule.ShardingRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
-import org.apache.shardingsphere.api.config.strategy.HintShardingStrategyConfiguration;
-import org.apache.shardingsphere.api.config.strategy.InlineShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.config.sharding.ShardingRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.strategy.HintShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.config.sharding.strategy.InlineShardingStrategyConfiguration;
+import org.apache.shardingsphere.api.hint.HintManager;
 import org.apache.shardingsphere.core.constant.DatabaseType;
-import org.apache.shardingsphere.core.fixture.OrderDatabaseHintShardingAlgorithm;
+import org.apache.shardingsphere.core.fixture.HintShardingAlgorithmFixture;
 import org.apache.shardingsphere.core.metadata.ShardingMetaData;
 import org.apache.shardingsphere.core.parsing.parser.sql.dql.select.SelectStatement;
 import org.apache.shardingsphere.core.rule.ShardingRule;
@@ -53,7 +53,7 @@ public final class DatabaseTest {
     @Before
     public void setRouteRuleContext() {
         ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
-        shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(new HintShardingStrategyConfiguration(new OrderDatabaseHintShardingAlgorithm()));
+        shardingRuleConfig.setDefaultDatabaseShardingStrategyConfig(new HintShardingStrategyConfiguration(new HintShardingAlgorithmFixture()));
         Map<String, DataSource> dataSourceMap = new LinkedHashMap<>(2, 1);
         dataSourceMap.put("ds_0", null);
         dataSourceMap.put("ds_1", null);
@@ -118,9 +118,7 @@ public final class DatabaseTest {
         Map<String, DataSource> dataSourceMap = new HashMap<>();
         dataSourceMap.put(shardingPrefix + "1", null);
         dataSourceMap.put(shardingPrefix + "2", null);
-        TableRuleConfiguration tableRuleConfig = new TableRuleConfiguration();
-        tableRuleConfig.setLogicTable(shardingTable);
-        tableRuleConfig.setActualDataNodes(shardingPrefix + "${1..2}." + shardingTable);
+        TableRuleConfiguration tableRuleConfig = new TableRuleConfiguration(shardingTable, shardingPrefix + "${1..2}." + shardingTable);
         tableRuleConfig.setDatabaseShardingStrategyConfig(new InlineShardingStrategyConfiguration("city_id", shardingPrefix + "${city_id % 2 + 1}"));
         ShardingRuleConfiguration shardingRuleConfig = new ShardingRuleConfiguration();
         shardingRuleConfig.getTableRuleConfigs().add(tableRuleConfig);

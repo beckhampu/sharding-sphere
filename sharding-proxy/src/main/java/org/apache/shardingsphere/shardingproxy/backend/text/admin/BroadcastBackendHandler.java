@@ -18,19 +18,17 @@
 package org.apache.shardingsphere.shardingproxy.backend.text.admin;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.shardingsphere.core.constant.DatabaseType;
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
 import org.apache.shardingsphere.shardingproxy.backend.communication.DatabaseCommunicationEngineFactory;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendConnection;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.error.ErrorResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.apache.shardingsphere.shardingproxy.backend.text.TextProtocolBackendHandler;
 import org.apache.shardingsphere.shardingproxy.runtime.GlobalRegistry;
-import org.apache.shardingsphere.shardingproxy.transport.common.packet.DatabasePacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 
+import java.util.Collection;
 import java.util.LinkedList;
-import java.util.List;
 
 /**
  * Backend handler for broadcast.
@@ -43,27 +41,22 @@ public final class BroadcastBackendHandler implements TextProtocolBackendHandler
     
     private final DatabaseCommunicationEngineFactory databaseCommunicationEngineFactory = DatabaseCommunicationEngineFactory.getInstance();
     
-    private final int sequenceId;
-    
     private final String sql;
     
     private final BackendConnection backendConnection;
     
-    private final DatabaseType databaseType;
-    
     @Override
-    public CommandResponsePackets execute() {
-        List<DatabasePacket> packets = new LinkedList<>();
+    public BackendResponse execute() {
+        Collection<BackendResponse> responses = new LinkedList<>();
         for (String each : GlobalRegistry.getInstance().getSchemaNames()) {
-            packets.addAll(databaseCommunicationEngineFactory.newTextProtocolInstance(
-                    GlobalRegistry.getInstance().getLogicSchema(each), sequenceId, sql, backendConnection, databaseType).execute().getPackets());
+            responses.add(databaseCommunicationEngineFactory.newTextProtocolInstance(GlobalRegistry.getInstance().getLogicSchema(each), sql, backendConnection).execute());
         }
-        for (DatabasePacket each : packets) {
-            if (each instanceof ErrPacket) {
-                return new CommandResponsePackets(each);
+        for (BackendResponse each : responses) {
+            if (each instanceof ErrorResponse) {
+                return each;
             }
         }
-        return new CommandResponsePackets(new OKPacket(1, 0, 0));
+        return new UpdateResponse();
     }
     
     @Override
@@ -72,7 +65,7 @@ public final class BroadcastBackendHandler implements TextProtocolBackendHandler
     }
     
     @Override
-    public ResultPacket getResultValue() {
+    public QueryData getQueryData() {
         return null;
     }
 }

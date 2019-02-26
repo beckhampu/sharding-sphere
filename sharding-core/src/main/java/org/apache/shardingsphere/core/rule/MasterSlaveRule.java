@@ -17,16 +17,16 @@
 
 package org.apache.shardingsphere.core.rule;
 
-import com.google.common.base.Preconditions;
 import lombok.Getter;
-import org.apache.shardingsphere.api.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithm;
-import org.apache.shardingsphere.api.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithmType;
-import org.apache.shardingsphere.api.config.rule.MasterSlaveRuleConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.LoadBalanceStrategyConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.MasterSlaveRuleConfiguration;
+import org.apache.shardingsphere.core.masterslave.MasterSlaveLoadBalanceAlgorithmFactory;
+import org.apache.shardingsphere.spi.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithm;
 
 import java.util.Collection;
 
 /**
- * Databases and tables master-slave rule configuration.
+ * Databases and tables master-slave rule.
  * 
  * @author zhangliang
  * @author panjuan
@@ -44,16 +44,26 @@ public class MasterSlaveRule {
     
     private final MasterSlaveRuleConfiguration masterSlaveRuleConfiguration;
     
+    public MasterSlaveRule(final String name, final String masterDataSourceName, final Collection<String> slaveDataSourceNames, final MasterSlaveLoadBalanceAlgorithm loadBalanceAlgorithm) {
+        this.name = name;
+        this.masterDataSourceName = masterDataSourceName;
+        this.slaveDataSourceNames = slaveDataSourceNames;
+        this.loadBalanceAlgorithm = null == loadBalanceAlgorithm ? MasterSlaveLoadBalanceAlgorithmFactory.getInstance().newAlgorithm() : loadBalanceAlgorithm;
+        masterSlaveRuleConfiguration = new MasterSlaveRuleConfiguration(name, masterDataSourceName, slaveDataSourceNames, 
+                new LoadBalanceStrategyConfiguration(this.loadBalanceAlgorithm.getType(), this.loadBalanceAlgorithm.getProperties()));
+    }
+    
     public MasterSlaveRule(final MasterSlaveRuleConfiguration config) {
-        Preconditions.checkNotNull(config.getName(), "Master-slave rule name cannot be null.");
-        Preconditions.checkNotNull(config.getMasterDataSourceName(), "Master data source name cannot be null.");
-        Preconditions.checkNotNull(config.getSlaveDataSourceNames(), "Slave data source names cannot be null.");
-        Preconditions.checkState(!config.getSlaveDataSourceNames().isEmpty(), "Slave data source names cannot be empty.");
         name = config.getName();
         masterDataSourceName = config.getMasterDataSourceName();
         slaveDataSourceNames = config.getSlaveDataSourceNames();
-        loadBalanceAlgorithm = null == config.getLoadBalanceAlgorithm() ? MasterSlaveLoadBalanceAlgorithmType.getDefaultAlgorithmType().getAlgorithm() : config.getLoadBalanceAlgorithm();
+        loadBalanceAlgorithm = createMasterSlaveLoadBalanceAlgorithm(config.getLoadBalanceStrategyConfiguration());
         masterSlaveRuleConfiguration = config;
+    }
+    
+    private MasterSlaveLoadBalanceAlgorithm createMasterSlaveLoadBalanceAlgorithm(final LoadBalanceStrategyConfiguration loadBalanceStrategyConfiguration) {
+        MasterSlaveLoadBalanceAlgorithmFactory factory = MasterSlaveLoadBalanceAlgorithmFactory.getInstance();
+        return null == loadBalanceStrategyConfiguration ? factory.newAlgorithm() : factory.newAlgorithm(loadBalanceStrategyConfiguration.getType(), loadBalanceStrategyConfiguration.getProperties());
     }
     
     /**

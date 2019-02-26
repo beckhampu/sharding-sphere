@@ -17,13 +17,17 @@
 
 package org.apache.shardingsphere.shardingproxy.backend.text.transaction;
 
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.connection.BackendTransactionManager;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.error.ErrorResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
+import org.apache.shardingsphere.shardingproxy.backend.response.update.UpdateResponse;
 import org.apache.shardingsphere.shardingproxy.backend.text.TextProtocolBackendHandler;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 import org.apache.shardingsphere.transaction.core.TransactionOperationType;
+
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 
 /**
  * Do transaction operation.
@@ -42,17 +46,15 @@ public final class TransactionBackendHandler implements TextProtocolBackendHandl
     }
     
     @Override
-    public CommandResponsePackets execute() {
+    public BackendResponse execute() {
         try {
             return doTransaction();
-            // CHECKSTYLE:OFF
-        } catch (final Exception ex) {
-            // CHECKSTYLE:ON
-            return new CommandResponsePackets(ex);
+        } catch (final SQLException ex) {
+            return new ErrorResponse(ex);
         }
     }
     
-    private CommandResponsePackets doTransaction() throws Exception {
+    private BackendResponse doTransaction() throws SQLException {
         switch (operationType) {
             case BEGIN:
                 backendTransactionManager.begin();
@@ -64,9 +66,9 @@ public final class TransactionBackendHandler implements TextProtocolBackendHandl
                 backendTransactionManager.rollback();
                 break;
             default:
-                throw new UnsupportedOperationException(operationType.name());
+                throw new SQLFeatureNotSupportedException(operationType.name());
         }
-        return new CommandResponsePackets(new OKPacket(1));
+        return new UpdateResponse();
     }
     
     @Override
@@ -75,7 +77,7 @@ public final class TransactionBackendHandler implements TextProtocolBackendHandl
     }
     
     @Override
-    public ResultPacket getResultValue() {
+    public QueryData getQueryData() {
         return null;
     }
 }

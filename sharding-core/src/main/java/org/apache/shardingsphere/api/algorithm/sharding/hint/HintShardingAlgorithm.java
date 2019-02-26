@@ -17,7 +17,6 @@
 
 package org.apache.shardingsphere.api.algorithm.sharding.hint;
 
-import org.apache.shardingsphere.api.algorithm.sharding.ShardingValue;
 import org.apache.shardingsphere.core.routing.strategy.ShardingAlgorithm;
 
 import java.util.Collection;
@@ -26,8 +25,10 @@ import java.util.Collection;
  * Sharding algorithm for hint without sharding keys.
  * 
  * @author zhangliang
+ * 
+ * @param <T> class type of sharding value
  */
-public interface HintShardingAlgorithm extends ShardingAlgorithm {
+public interface HintShardingAlgorithm<T extends Comparable<?>> extends ShardingAlgorithm {
     
     /**
      * Sharding.
@@ -38,5 +39,5 @@ public interface HintShardingAlgorithm extends ShardingAlgorithm {
      * @param shardingValue sharding value
      * @return sharding result for data sources or tables's names
      */
-    Collection<String> doSharding(Collection<String> availableTargetNames, ShardingValue shardingValue);
+    Collection<String> doSharding(Collection<String> availableTargetNames, HintShardingValue<T> shardingValue);
 }

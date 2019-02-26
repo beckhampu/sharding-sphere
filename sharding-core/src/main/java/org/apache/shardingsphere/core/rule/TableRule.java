@@ -18,17 +18,23 @@
 package org.apache.shardingsphere.core.rule;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.shardingsphere.api.config.KeyGeneratorConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.encryptor.EncryptorConfiguration;
+import org.apache.shardingsphere.api.config.sharding.KeyGeneratorConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
+import org.apache.shardingsphere.core.encrypt.ShardingEncryptorFactory;
+import org.apache.shardingsphere.core.encrypt.ShardingEncryptorStrategy;
 import org.apache.shardingsphere.core.exception.ShardingException;
-import org.apache.shardingsphere.core.keygen.generator.ShardingKeyGenerator;
+import org.apache.shardingsphere.core.keygen.ShardingKeyGeneratorFactory;
 import org.apache.shardingsphere.core.routing.strategy.ShardingStrategy;
 import org.apache.shardingsphere.core.routing.strategy.ShardingStrategyFactory;
 import org.apache.shardingsphere.core.util.InlineExpressionParser;
+import org.apache.shardingsphere.spi.algorithm.encrypt.ShardingEncryptor;
+import org.apache.shardingsphere.spi.algorithm.keygen.ShardingKeyGenerator;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -40,7 +46,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Table rule configuration.
+ * Table rule.
  *
  * @author zhangliang
  */
@@ -63,6 +69,8 @@ public final class TableRule {
     
     private final ShardingKeyGenerator shardingKeyGenerator;
     
+    private final ShardingEncryptorStrategy shardingEncryptorStrategy;
+    
     private final String logicIndex;
     
     public TableRule(final String defaultDataSourceName, final String logicTableName) {
@@ -73,6 +81,7 @@ public final class TableRule {
         tableShardingStrategy = null;
         generateKeyColumn = null;
         shardingKeyGenerator = null;
+        shardingEncryptorStrategy = null;
         logicIndex = null;
     }
     
@@ -84,6 +93,7 @@ public final class TableRule {
         tableShardingStrategy = null;
         generateKeyColumn = null;
         shardingKeyGenerator = null;
+        shardingEncryptorStrategy = null;
         logicIndex = null;
     }
     
@@ -97,8 +107,22 @@ public final class TableRule {
         databaseShardingStrategy = null == tableRuleConfig.getDatabaseShardingStrategyConfig() ? null : ShardingStrategyFactory.newInstance(tableRuleConfig.getDatabaseShardingStrategyConfig());
         tableShardingStrategy = null == tableRuleConfig.getTableShardingStrategyConfig() ? null : ShardingStrategyFactory.newInstance(tableRuleConfig.getTableShardingStrategyConfig());
         generateKeyColumn = getGenerateKeyColumn(tableRuleConfig.getKeyGeneratorConfig(), defaultGenerateKeyColumn);
-        shardingKeyGenerator = null == tableRuleConfig.getKeyGeneratorConfig() ? null : tableRuleConfig.getKeyGeneratorConfig().getKeyGenerator();
+        shardingKeyGenerator = containsKeyGeneratorConfiguration(tableRuleConfig)
+                ? ShardingKeyGeneratorFactory.getInstance().newAlgorithm(tableRuleConfig.getKeyGeneratorConfig().getType(), tableRuleConfig.getKeyGeneratorConfig().getProperties()) : null;
+        shardingEncryptorStrategy = null == tableRuleConfig.getEncryptorConfig() ? null : getShardingEncryptorStrategy(tableRuleConfig.getEncryptorConfig());
         logicIndex = null == tableRuleConfig.getLogicIndex() ? null : tableRuleConfig.getLogicIndex().toLowerCase();
+    }
+    
+    private boolean containsKeyGeneratorConfiguration(final TableRuleConfiguration tableRuleConfiguration) {
+        return null != tableRuleConfiguration.getKeyGeneratorConfig() && !Strings.isNullOrEmpty(tableRuleConfiguration.getKeyGeneratorConfig().getType());
+    }
+    
+    private ShardingEncryptorStrategy getShardingEncryptorStrategy(final EncryptorConfiguration encryptorConfiguration) {
+        ShardingEncryptor shardingEncryptor = ShardingEncryptorFactory.getInstance().newAlgorithm(encryptorConfiguration.getType(), encryptorConfiguration.getProperties());
+        List<String> columns = Splitter.on(",").trimResults().splitToList(encryptorConfiguration.getColumns());
+        List<String> assistedQueryColumns = Strings.isNullOrEmpty(encryptorConfiguration.getAssistedQueryColumns())
+                ? Collections.<String>emptyList() : Splitter.on(",").trimResults().splitToList(encryptorConfiguration.getAssistedQueryColumns());
+        return new ShardingEncryptorStrategy(columns, assistedQueryColumns, shardingEncryptor); 
     }
     
     private String getGenerateKeyColumn(final KeyGeneratorConfiguration keyGeneratorConfiguration, final String defaultGenerateKeyColumn) {
@@ -197,5 +221,21 @@ public final class TableRule {
             }
         }
         return false;
+    }
+    
+    /**
+     * Get all sharding columns.
+     * 
+     * @return all sharding columns
+     */
+    public Collection<String> getAllShardingColumns() {
+        Collection<String> result = new LinkedList<>();
+        if (null != databaseShardingStrategy) {
+            result.addAll(databaseShardingStrategy.getShardingColumns());
+        }
+        if (null != tableShardingStrategy) {
+            result.addAll(tableShardingStrategy.getShardingColumns());
+        }
+        return result;
     }
 }

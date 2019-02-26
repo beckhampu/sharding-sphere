@@ -17,13 +17,13 @@
 
 package org.apache.shardingsphere.shardingproxy.backend.text;
 
-import org.apache.shardingsphere.shardingproxy.backend.ResultPacket;
-import org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.CommandResponsePackets;
+import org.apache.shardingsphere.shardingproxy.backend.response.BackendResponse;
+import org.apache.shardingsphere.shardingproxy.backend.response.query.QueryData;
 
 import java.sql.SQLException;
 
 /**
- * Backend handler.
+ * Text protocol backend handler.
  *
  * @author zhangliang
  */
@@ -32,9 +32,9 @@ public interface TextProtocolBackendHandler {
     /**
      * Execute command.
      *
-     * @return result packets to be sent
+     * @return backend response
      */
-    CommandResponsePackets execute();
+    BackendResponse execute();
     
     /**
      * Goto next result value.
@@ -45,10 +45,10 @@ public interface TextProtocolBackendHandler {
     boolean next() throws SQLException;
     
     /**
-     * Get result value.
+     * Get query data.
      *
-     * @return result packet
+     * @return query data
      * @throws SQLException SQL exception
      */
-    ResultPacket getResultValue() throws SQLException;
+    QueryData getQueryData() throws SQLException;
 }
