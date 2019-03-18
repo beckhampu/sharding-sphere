@@ -21,14 +21,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import lombok.Getter;
+import org.apache.shardingsphere.api.hint.HintManager;
 import org.apache.shardingsphere.core.constant.ConnectionMode;
-import org.apache.shardingsphere.core.hint.HintManagerHolder;
-import org.apache.shardingsphere.core.routing.router.masterslave.MasterVisitedManager;
-import org.apache.shardingsphere.core.spi.hook.SPIRootInvokeHook;
+import org.apache.shardingsphere.core.execute.hook.RootInvokeHook;
+import org.apache.shardingsphere.core.execute.hook.SPIRootInvokeHook;
+import org.apache.shardingsphere.core.route.router.masterslave.MasterVisitedManager;
 import org.apache.shardingsphere.shardingjdbc.jdbc.adapter.executor.ForceExecuteCallback;
 import org.apache.shardingsphere.shardingjdbc.jdbc.adapter.executor.ForceExecuteTemplate;
 import org.apache.shardingsphere.shardingjdbc.jdbc.unsupported.AbstractUnsupportedOperationConnection;
-import org.apache.shardingsphere.spi.hook.RootInvokeHook;
 import org.apache.shardingsphere.transaction.ShardingTransactionManagerEngine;
 import org.apache.shardingsphere.transaction.core.TransactionType;
 import org.apache.shardingsphere.transaction.core.TransactionTypeHolder;
@@ -190,12 +190,14 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     @Override
     public final void setAutoCommit(final boolean autoCommit) throws SQLException {
         this.autoCommit = autoCommit;
-        if (TransactionType.LOCAL == transactionType) {
+        if (TransactionType.LOCAL == transactionType || isOnlyLocalTransactionValid()) {
             setAutoCommitForLocalTransaction(autoCommit);
         } else if (!autoCommit) {
             shardingTransactionManager.begin();
         }
     }
+    
+    protected abstract boolean isOnlyLocalTransactionValid();
     
     private void setAutoCommitForLocalTransaction(final boolean autoCommit) throws SQLException {
         recordMethodInvocation(Connection.class, "setAutoCommit", new Class[]{boolean.class}, new Object[]{autoCommit});
@@ -210,7 +212,7 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     
     @Override
     public final void commit() throws SQLException {
-        if (TransactionType.LOCAL == transactionType) {
+        if (TransactionType.LOCAL == transactionType || isOnlyLocalTransactionValid()) {
             commitForLocalTransaction();
         } else {
             shardingTransactionManager.commit();
@@ -229,7 +231,7 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     
     @Override
     public final void rollback() throws SQLException {
-        if (TransactionType.LOCAL == transactionType) {
+        if (TransactionType.LOCAL == transactionType || isOnlyLocalTransactionValid()) {
             rollbackForLocalTransaction();
         } else {
             shardingTransactionManager.rollback();
@@ -249,7 +251,7 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     @Override
     public final void close() throws SQLException {
         closed = true;
-        HintManagerHolder.clear();
+        HintManager.clear();
         MasterVisitedManager.clear();
         TransactionTypeHolder.clear();
         int connectionSize = cachedConnections.size();

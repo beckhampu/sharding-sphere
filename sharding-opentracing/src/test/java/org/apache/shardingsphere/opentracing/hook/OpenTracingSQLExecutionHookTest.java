@@ -21,14 +21,14 @@ import io.opentracing.ActiveSpan;
 import io.opentracing.ActiveSpan.Continuation;
 import io.opentracing.mock.MockSpan;
 import io.opentracing.tag.Tags;
-import org.apache.shardingsphere.core.executor.ShardingExecuteDataMap;
+import org.apache.shardingsphere.core.execute.ShardingExecuteDataMap;
+import org.apache.shardingsphere.core.execute.hook.SPISQLExecutionHook;
+import org.apache.shardingsphere.core.execute.hook.SQLExecutionHook;
 import org.apache.shardingsphere.core.metadata.datasource.DataSourceMetaData;
-import org.apache.shardingsphere.core.routing.RouteUnit;
-import org.apache.shardingsphere.core.routing.SQLUnit;
+import org.apache.shardingsphere.core.route.RouteUnit;
+import org.apache.shardingsphere.core.route.SQLUnit;
 import org.apache.shardingsphere.core.spi.NewInstanceServiceLoader;
-import org.apache.shardingsphere.core.spi.hook.SPISQLExecutionHook;
 import org.apache.shardingsphere.opentracing.constant.ShardingTags;
-import org.apache.shardingsphere.spi.hook.SQLExecutionHook;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
@@ -81,7 +81,7 @@ public final class OpenTracingSQLExecutionHookTest extends BaseOpenTracingHookTe
         DataSourceMetaData dataSourceMetaData = mock(DataSourceMetaData.class);
         when(dataSourceMetaData.getHostName()).thenReturn("localhost");
         when(dataSourceMetaData.getPort()).thenReturn(8888);
-        sqlExecutionHook.start(createRouteUnit("success_ds", "SELECT * FROM success_tbl;", Collections.singletonList(Arrays.<Object>asList("1", 2))), dataSourceMetaData, true, null);
+        sqlExecutionHook.start(createRouteUnit("success_ds", "SELECT * FROM success_tbl;", Arrays.<Object>asList("1", 2)), dataSourceMetaData, true, null);
         sqlExecutionHook.finishSuccess();
         MockSpan actual = getActualSpan();
         assertThat(actual.operationName(), is("/Sharding-Sphere/executeSQL/"));
@@ -103,7 +103,7 @@ public final class OpenTracingSQLExecutionHookTest extends BaseOpenTracingHookTe
         when(dataSourceMetaData.getHostName()).thenReturn("localhost");
         when(dataSourceMetaData.getPort()).thenReturn(8888);
         sqlExecutionHook.start(
-                createRouteUnit("success_ds", "SELECT * FROM success_tbl;", Collections.singletonList(Arrays.<Object>asList("1", 2))), dataSourceMetaData, false, ShardingExecuteDataMap.getDataMap());
+                createRouteUnit("success_ds", "SELECT * FROM success_tbl;", Arrays.<Object>asList("1", 2)), dataSourceMetaData, false, ShardingExecuteDataMap.getDataMap());
         sqlExecutionHook.finishSuccess();
         MockSpan actual = getActualSpan();
         assertThat(actual.operationName(), is("/Sharding-Sphere/executeSQL/"));
@@ -124,7 +124,7 @@ public final class OpenTracingSQLExecutionHookTest extends BaseOpenTracingHookTe
         DataSourceMetaData dataSourceMetaData = mock(DataSourceMetaData.class);
         when(dataSourceMetaData.getHostName()).thenReturn("localhost");
         when(dataSourceMetaData.getPort()).thenReturn(8888);
-        sqlExecutionHook.start(createRouteUnit("failure_ds", "SELECT * FROM failure_tbl;", Collections.<List<Object>>emptyList()), dataSourceMetaData, true, null);
+        sqlExecutionHook.start(createRouteUnit("failure_ds", "SELECT * FROM failure_tbl;", Collections.emptyList()), dataSourceMetaData, true, null);
         sqlExecutionHook.finishFailure(new RuntimeException("SQL execution error"));
         MockSpan actual = getActualSpan();
         assertThat(actual.operationName(), is("/Sharding-Sphere/executeSQL/"));
@@ -141,8 +141,8 @@ public final class OpenTracingSQLExecutionHookTest extends BaseOpenTracingHookTe
         verify(activeSpan, times(0)).deactivate();
     }
     
-    private RouteUnit createRouteUnit(final String dataSourceName, final String sql, final List<List<Object>> parameterSets) {
-        SQLUnit sqlUnit = new SQLUnit(sql, parameterSets);
+    private RouteUnit createRouteUnit(final String dataSourceName, final String sql, final List<Object> parameters) {
+        SQLUnit sqlUnit = new SQLUnit(sql, parameters);
         return new RouteUnit(dataSourceName, sqlUnit);
     }
 }

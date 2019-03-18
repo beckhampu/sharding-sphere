@@ -18,7 +18,6 @@
 package org.apache.shardingsphere.shardingjdbc.jdbc.core.datasource;
 
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.api.config.masterslave.MasterSlaveRuleConfiguration;
 import org.apache.shardingsphere.core.constant.properties.ShardingProperties;
 import org.apache.shardingsphere.core.rule.MasterSlaveRule;
@@ -42,7 +41,6 @@ import java.util.Properties;
  * @author zhaojun
  */
 @Getter
-@Slf4j
 public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
     
     private final DatabaseMetaData cachedDatabaseMetaData;
@@ -67,7 +65,7 @@ public class MasterSlaveDataSource extends AbstractDataSourceAdapter {
     
     private DatabaseMetaData createCachedDatabaseMetaData(final Map<String, DataSource> dataSourceMap) throws SQLException {
         try (Connection connection = dataSourceMap.values().iterator().next().getConnection()) {
-            return new CachedDatabaseMetaData(connection.getMetaData());
+            return new CachedDatabaseMetaData(connection.getMetaData(), dataSourceMap, null);
         }
     }
     
