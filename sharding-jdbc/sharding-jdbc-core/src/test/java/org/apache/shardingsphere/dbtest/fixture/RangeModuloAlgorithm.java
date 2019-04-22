@@ -17,9 +17,8 @@
 
 package org.apache.shardingsphere.dbtest.fixture;
 
-import com.google.common.collect.Range;
-import org.apache.shardingsphere.api.algorithm.sharding.RangeShardingValue;
-import org.apache.shardingsphere.api.algorithm.sharding.standard.RangeShardingAlgorithm;
+import org.apache.shardingsphere.api.sharding.standard.RangeShardingAlgorithm;
+import org.apache.shardingsphere.api.sharding.standard.RangeShardingValue;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -29,8 +28,7 @@ public final class RangeModuloAlgorithm implements RangeShardingAlgorithm<Intege
     @Override
     public Collection<String> doSharding(final Collection<String> availableTargetNames, final RangeShardingValue<Integer> shardingValue) {
         Collection<String> result = new LinkedHashSet<>(availableTargetNames.size());
-        Range<Integer> range = shardingValue.getValueRange();
-        for (Integer i = range.lowerEndpoint(); i <= range.upperEndpoint(); i++) {
+        for (Integer i = shardingValue.getValueRange().lowerEndpoint(); i <= shardingValue.getValueRange().upperEndpoint(); i++) {
             for (String each : availableTargetNames) {
                 if (each.endsWith(i % 10 + "")) {
                     result.add(each);

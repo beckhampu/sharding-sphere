@@ -19,15 +19,13 @@ package org.apache.shardingsphere.shardingjdbc.orchestration.internal.datasource
 
 import lombok.SneakyThrows;
 import org.apache.commons.dbcp2.BasicDataSource;
-import org.apache.shardingsphere.api.ConfigMapContext;
-import org.apache.shardingsphere.api.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithmType;
-import org.apache.shardingsphere.api.config.rule.MasterSlaveRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.ShardingRuleConfiguration;
-import org.apache.shardingsphere.api.config.rule.TableRuleConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.LoadBalanceStrategyConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.MasterSlaveRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.ShardingRuleConfiguration;
+import org.apache.shardingsphere.api.config.sharding.TableRuleConfiguration;
 import org.apache.shardingsphere.core.config.DataSourceConfiguration;
 import org.apache.shardingsphere.core.constant.ShardingConstant;
 import org.apache.shardingsphere.orchestration.config.OrchestrationConfiguration;
-import org.apache.shardingsphere.orchestration.internal.registry.config.event.ConfigMapChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.DataSourceChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.PropertiesChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.ShardingRuleChangedEvent;
@@ -40,7 +38,10 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -50,24 +51,22 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class OrchestrationShardingDataSourceTest {
+public final class OrchestrationShardingDataSourceTest {
     
     private static OrchestrationShardingDataSource shardingDataSource;
     
     @BeforeClass
-    @SneakyThrows
-    public static void setUp() {
+    public static void setUp() throws SQLException, IOException, URISyntaxException {
         shardingDataSource = new OrchestrationShardingDataSource(getShardingDataSource(), getOrchestrationConfiguration());
     }
     
-    @SneakyThrows
-    private static ShardingDataSource getShardingDataSource() {
+    private static ShardingDataSource getShardingDataSource() throws IOException, SQLException, URISyntaxException {
         File yamlFile = new File(OrchestrationShardingDataSourceTest.class.getResource("/yaml/unit/sharding.yaml").toURI());
         return (ShardingDataSource) YamlShardingDataSourceFactory.createDataSource(yamlFile);
     }
     
     private static OrchestrationConfiguration getOrchestrationConfiguration() {
-        RegistryCenterConfiguration registryCenterConfiguration = new RegistryCenterConfiguration();
+        RegistryCenterConfiguration registryCenterConfiguration = new RegistryCenterConfiguration("TestRegistryCenter");
         registryCenterConfiguration.setNamespace("test_sharding");
         registryCenterConfiguration.setServerLists("localhost:3181");
         return new OrchestrationConfiguration("test", registryCenterConfiguration, true);
@@ -88,16 +87,13 @@ public class OrchestrationShardingDataSourceTest {
     
     private ShardingRuleConfiguration getShardingRuleConfig() {
         ShardingRuleConfiguration result = new ShardingRuleConfiguration();
-        TableRuleConfiguration tableRuleConfig = new TableRuleConfiguration();
-        tableRuleConfig.setLogicTable("logic_table");
-        tableRuleConfig.setActualDataNodes("ds_ms.table_${0..1}");
-        result.getTableRuleConfigs().add(tableRuleConfig);
+        result.getTableRuleConfigs().add(new TableRuleConfiguration("logic_table", "ds_ms.table_${0..1}"));
         result.getMasterSlaveRuleConfigs().add(getMasterSlaveRuleConfiguration());
         return result;
     }
     
     private MasterSlaveRuleConfiguration getMasterSlaveRuleConfiguration() {
-        return new MasterSlaveRuleConfiguration("ds_ms", "ds_m", Collections.singletonList("ds_s"), MasterSlaveLoadBalanceAlgorithmType.ROUND_ROBIN.getAlgorithm());
+        return new MasterSlaveRuleConfiguration("ds_ms", "ds_m", Collections.singletonList("ds_s"), new LoadBalanceStrategyConfiguration("ROUND_ROBIN"));
     }
     
     @Test
@@ -130,18 +126,6 @@ public class OrchestrationShardingDataSourceTest {
         Properties properties = new Properties();
         properties.setProperty("sql.show", "true");
         return new PropertiesChangedEvent(properties);
-    }
-    
-    @Test
-    public void assertRenewConfigMap() {
-        shardingDataSource.renew(getConfigMapChangedEvent());
-        assertThat(ConfigMapContext.getInstance().getConfigMap().get("key1"), is((Object) "value1"));
-    }
-    
-    private ConfigMapChangedEvent getConfigMapChangedEvent() {
-        Map<String, Object> configMap = new LinkedHashMap<>();
-        configMap.put("key1", "value1");
-        return new ConfigMapChangedEvent(configMap);
     }
     
     @Test

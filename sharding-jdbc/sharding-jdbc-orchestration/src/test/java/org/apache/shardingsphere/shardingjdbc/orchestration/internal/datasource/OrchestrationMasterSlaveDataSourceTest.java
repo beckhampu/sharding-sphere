@@ -17,16 +17,13 @@
 
 package org.apache.shardingsphere.shardingjdbc.orchestration.internal.datasource;
 
-import lombok.SneakyThrows;
 import org.apache.commons.dbcp2.BasicDataSource;
-import org.apache.shardingsphere.api.ConfigMapContext;
-import org.apache.shardingsphere.api.algorithm.masterslave.MasterSlaveLoadBalanceAlgorithmType;
-import org.apache.shardingsphere.api.config.rule.MasterSlaveRuleConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.LoadBalanceStrategyConfiguration;
+import org.apache.shardingsphere.api.config.masterslave.MasterSlaveRuleConfiguration;
 import org.apache.shardingsphere.core.config.DataSourceConfiguration;
 import org.apache.shardingsphere.core.constant.ShardingConstant;
 import org.apache.shardingsphere.core.exception.ShardingException;
 import org.apache.shardingsphere.orchestration.config.OrchestrationConfiguration;
-import org.apache.shardingsphere.orchestration.internal.registry.config.event.ConfigMapChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.DataSourceChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.MasterSlaveRuleChangedEvent;
 import org.apache.shardingsphere.orchestration.internal.registry.config.event.PropertiesChangedEvent;
@@ -41,10 +38,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -52,32 +50,29 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class OrchestrationMasterSlaveDataSourceTest {
+public final class OrchestrationMasterSlaveDataSourceTest {
     
     private static OrchestrationMasterSlaveDataSource masterSlaveDataSource;
     
     @BeforeClass
-    @SneakyThrows
-    public static void setUp() {
+    public static void setUp() throws SQLException, IOException, URISyntaxException {
         masterSlaveDataSource = new OrchestrationMasterSlaveDataSource(getMasterSlaveDataSource(), getOrchestrationConfiguration());
     }
     
-    @SneakyThrows
-    private static MasterSlaveDataSource getMasterSlaveDataSource() {
+    private static MasterSlaveDataSource getMasterSlaveDataSource() throws IOException, SQLException, URISyntaxException {
         File yamlFile = new File(OrchestrationMasterSlaveDataSource.class.getResource("/yaml/unit/masterSlave.yaml").toURI());
         return (MasterSlaveDataSource) YamlMasterSlaveDataSourceFactory.createDataSource(yamlFile);
     }
     
     private static OrchestrationConfiguration getOrchestrationConfiguration() {
-        RegistryCenterConfiguration registryCenterConfiguration = new RegistryCenterConfiguration();
+        RegistryCenterConfiguration registryCenterConfiguration = new RegistryCenterConfiguration("TestRegistryCenter");
         registryCenterConfiguration.setNamespace("test_ms");
         registryCenterConfiguration.setServerLists("localhost:3181");
         return new OrchestrationConfiguration("test", registryCenterConfiguration, true);
     }
     
     @Test
-    @SneakyThrows
-    public void assertInitializeOrchestrationMasterSlaveDataSource() {
+    public void assertInitializeOrchestrationMasterSlaveDataSource() throws SQLException {
         OrchestrationMasterSlaveDataSource masterSlaveDataSource = new OrchestrationMasterSlaveDataSource(getOrchestrationConfiguration());
         assertThat(masterSlaveDataSource.getConnection(), instanceOf(Connection.class));
     }
@@ -89,8 +84,8 @@ public class OrchestrationMasterSlaveDataSourceTest {
     }
     
     private MasterSlaveRuleChangedEvent getMasterSlaveRuleChangedEvent() {
-        MasterSlaveRuleConfiguration masterSlaveRuleConfiguration = new MasterSlaveRuleConfiguration("new_ms", "ds_m", 
-                Collections.singletonList("ds_s"), MasterSlaveLoadBalanceAlgorithmType.ROUND_ROBIN.getAlgorithm());
+        MasterSlaveRuleConfiguration masterSlaveRuleConfiguration = new MasterSlaveRuleConfiguration(
+                "new_ms", "ds_m", Collections.singletonList("ds_s"), new LoadBalanceStrategyConfiguration("ROUND_ROBIN"));
         return new MasterSlaveRuleChangedEvent(ShardingConstant.LOGIC_SCHEMA_NAME, masterSlaveRuleConfiguration);
     }
     
@@ -123,18 +118,6 @@ public class OrchestrationMasterSlaveDataSourceTest {
     }
     
     @Test
-    public void assertRenewConfigMap() {
-        masterSlaveDataSource.renew(getConfigMapChangedEvent());
-        assertThat(ConfigMapContext.getInstance().getConfigMap().get("key1"), is((Object) "value1"));
-    }
-    
-    private ConfigMapChangedEvent getConfigMapChangedEvent() {
-        Map<String, Object> configMap = new LinkedHashMap<>();
-        configMap.put("key1", "value1");
-        return new ConfigMapChangedEvent(configMap);
-    }
-    
-    @Test
     public void assertRenewDisabledState() {
         masterSlaveDataSource.renew(getDisabledStateChangedEvent());
         assertThat(masterSlaveDataSource.getDataSource().getMasterSlaveRule().getSlaveDataSourceNames().size(), is(0));
@@ -146,8 +129,7 @@ public class OrchestrationMasterSlaveDataSourceTest {
     }
     
     @Test
-    @SneakyThrows
-    public void assertRenewCircuitState() {
+    public void assertRenewCircuitState() throws SQLException {
         masterSlaveDataSource.renew(new CircuitStateChangedEvent(true));
         assertThat(masterSlaveDataSource.getConnection(), instanceOf(CircuitBreakerConnection.class));
     }
@@ -163,8 +145,7 @@ public class OrchestrationMasterSlaveDataSourceTest {
     }
     
     @Test(expected = ShardingException.class)
-    @SneakyThrows 
-    public void assertClose() {
+    public void assertClose() throws Exception {
         masterSlaveDataSource.close();
         try {
             masterSlaveDataSource.getDataSource().getDataSourceMap().values().iterator().next().getConnection();

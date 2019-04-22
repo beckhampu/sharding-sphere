@@ -1,6 +1,6 @@
-# [ShardingSphere - 分布式数据库中间层生态圈](http://shardingsphere.apache.org/index_zh.html)
+# [ShardingSphere - 分布式数据库中间层生态圈](https://shardingsphere.apache.org/index_zh.html)
 
-官方网站: http://shardingsphere.apache.org/
+官方网站: https://shardingsphere.apache.org/
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Gitter](https://badges.gitter.im/shardingsphere/shardingsphere.svg)](https://gitter.im/shardingsphere/Lobby)
@@ -8,8 +8,8 @@
 [![Stargazers over time](https://starcharts.herokuapp.com/sharding-sphere/sharding-sphere.svg)](https://starcharts.herokuapp.com/sharding-sphere/sharding-sphere)
 
 [![Total Lines](https://tokei.rs/b1/github/sharding-sphere/sharding-sphere?category=lines)](https://github.com/sharding-sphere/sharding-sphere)
-[![Build Status](https://api.travis-ci.org/sharding-sphere/sharding-sphere.png?branch=master)](https://travis-ci.org/sharding-sphere/sharding-sphere)
-[![Coverage Status](https://coveralls.io/repos/github/sharding-sphere/sharding-sphere/badge.svg?branch=dev)](https://coveralls.io/github/sharding-sphere/sharding-sphere?branch=dev)
+[![Build Status](https://travis-ci.org/apache/incubator-shardingsphere.svg?branch=dev)](https://travis-ci.org/apache/incubator-shardingsphere)
+[![Coverage Status](https://coveralls.io/repos/github/apache/incubator-shardingsphere/badge.svg?branch=dev)](https://coveralls.io/github/apache/incubator-shardingsphere?branch=dev)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/278600ed40ad48e988ab485b439abbcd)](https://www.codacy.com/app/terrymanu/sharding-sphere?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=sharding-sphere/sharding-sphere&amp;utm_campaign=Badge_Grade)
 [![snyk](https://snyk.io/test/github/sharding-sphere/sharding-sphere/badge.svg?targetFile=pom.xml)](https://snyk.io/test/github/sharding-sphere/sharding-sphere?targetFile=pom.xml)
 [![OpenTracing-1.0 Badge](https://img.shields.io/badge/OpenTracing--1.0-enabled-blue.svg)](http://opentracing.io)
@@ -17,7 +17,7 @@
 
 ## 文档
 
-[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](http://shardingsphere.apache.org/document/current/cn/)
+[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](https://shardingsphere.apache.org/document/current/cn/overview/)
 [![Roadmap](https://img.shields.io/badge/roadmap-English-blue.svg)](ROADMAP.md)
 
 ## 概述
@@ -31,6 +31,8 @@ ShardingSphere定位为关系型数据库中间件，旨在充分合理地在分
 
 ShardingSphere目前已经进入[Apache孵化器](http://incubator.apache.org/projects/shardingsphere.html)，
 欢迎通过[shardingsphere的dev邮件列表](mailto:dev@shardingsphere.apache.org)与我们讨论。
+
+__目前所有的可用发布都是进入Apache孵化器之前的发布版本，Apache官方发布将从4.0.0版本开始。__
 
 ![ShardingSphere Scope](http://shardingsphere.jd.com/document/current/img/shardingsphere-scope_cn.png)
 
@@ -53,10 +55,10 @@ ShardingSphere目前已经进入[Apache孵化器](http://incubator.apache.org/pr
 [![Docker Pulls](https://img.shields.io/docker/pulls/shardingsphere/sharding-proxy.svg)](https://store.docker.com/community/images/shardingsphere/sharding-proxy)
 
 定位为透明化的数据库代理端，提供封装了数据库二进制协议的服务端版本，用于完成对异构语言的支持。
-目前先提供MySQL版本，它可以使用任何兼容MySQL协议的访问客户端(如：MySQL Command Client, MySQL Workbench等)操作数据，对DBA更加友好。
+目前先提供MySQL和PostgreSQL版本，它可以使用任何兼容MySQL和PostgreSQL协议的访问客户端(如：MySQL Command Client, MySQL Workbench, Navicat等)操作数据，对DBA更加友好。
 
-* 向应用程序完全透明，可直接当做MySQL使用。
-* 适用于任何兼容MySQL协议的的客户端。
+* 向应用程序完全透明，可直接当做MySQL或PostgreSQL使用。
+* 适用于任何兼容MySQL或PostgreSQL协议的的客户端。
 
 ![Sharding-Proxy Architecture](http://shardingsphere.jd.com/document/current/img/sharding-proxy-brief_v2.png)
 
@@ -72,7 +74,7 @@ Database Mesh的关注重点在于如何将分布式的数据访问应用与数�
 
 |           | *Sharding-JDBC* | *Sharding-Proxy* | *Sharding-Sidecar* |
 | --------- | --------------- | ---------------- | ------------------ |
-| 数据库     | 任意            | MySQL            | MySQL              |
+| 数据库     | 任意            | MySQL/PostgreSQL | MySQL/PostgreSQL   |
 | 连接消耗数 | 高              | 低               | 高                  |
 | 异构语言   | 仅Java          | 任意             | 任意                |
 | 性能       | 损耗低          | 损耗略高          | 损耗低              |
@@ -94,20 +96,39 @@ ShardingSphere是多接入端共同组成的生态圈。
 
 * 分库 & 分表
 * 读写分离
-* 分布式主键
+* 分片策略定制化
+* 无中心化分布式主键
 
-### 分布式事务(Doing)
+### 分布式事务
 
+* 标准化事务接口
 * XA强一致事务
 * 柔性事务
 
 ### 数据库治理
 
 * 配置动态化
-* 熔断 & 禁用
-* 调用链路追踪
-* 弹性伸缩 (Planing)
+* 编排 & 治理
+* 数据脱敏
+* 可视化链路追踪
+* 弹性伸缩(规划中)
 
 ## Roadmap
 
 ![Roadmap](http://shardingsphere.jd.com/document/current/img/shardingsphere-roadmap_cn.png)
+
+## 如何构建
+
+安装`maven`至您的开发环境并且执行命令：
+
+```shell
+mvn clean install -Prelease
+``` 
+
+构建产物：
+
+```
+sharding-distribution/sharding-jdbc-distribution/target/apache-shardingsphere-incubating-${latest.release.version}-sharding-jdbc-bin.tar.gz: Sharding-JDBC的二进制包
+sharding-distribution/sharding-proxy-distribution/target/apache-shardingsphere-incubating-${latest.release.version}-sharding-proxy-bin.tar.gz: Sharding-Proxy的二进制包
+sharding-distribution/shardingsphere-src-distribution/target/apache-shardingsphere-incubating-${latest.release.version}-src.zip: ShardingSphere的源码包
+```

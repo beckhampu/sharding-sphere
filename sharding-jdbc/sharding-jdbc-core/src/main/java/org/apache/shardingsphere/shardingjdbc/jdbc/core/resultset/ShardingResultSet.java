@@ -17,7 +17,7 @@
 
 package org.apache.shardingsphere.shardingjdbc.jdbc.core.resultset;
 
-import org.apache.shardingsphere.core.merger.MergedResult;
+import org.apache.shardingsphere.core.merge.MergedResult;
 import org.apache.shardingsphere.shardingjdbc.jdbc.adapter.AbstractResultSetAdapter;
 
 import java.io.InputStream;
@@ -40,6 +40,7 @@ import java.util.List;
  * Result that support sharding.
  *
  * @author zhangliang
+ * @author panjuan
  */
 public final class ShardingResultSet extends AbstractResultSetAdapter {
     
