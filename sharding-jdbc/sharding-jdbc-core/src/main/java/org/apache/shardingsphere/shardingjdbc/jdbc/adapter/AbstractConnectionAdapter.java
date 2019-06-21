@@ -98,24 +98,30 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     
     /**
      * Get database connections.
+     * 获取一个数据源的连接
      *
-     * @param connectionMode connection mode
-     * @param dataSourceName data source name
-     * @param connectionSize size of connection list to be get
+     * @param connectionMode connection mode  连接模式
+     * @param dataSourceName data source name 数据源名称
+     * @param connectionSize size of connection list to be get 需要获取的连接数量
      * @return database connections
      * @throws SQLException SQL exception
      */
     public final List<Connection> getConnections(final ConnectionMode connectionMode, final String dataSourceName, final int connectionSize) throws SQLException {
+        // 根据数据源名称获取DataSource，校验DataSource是否为空
         DataSource dataSource = getDataSourceMap().get(dataSourceName);
         Preconditions.checkState(null != dataSource, "Missing the data source name: '%s'", dataSourceName);
+        
+        // 从缓存中获取此数据源的连接
         Collection<Connection> connections;
         synchronized (cachedConnections) {
             connections = cachedConnections.get(dataSourceName);
         }
         List<Connection> result;
         if (connections.size() >= connectionSize) {
+            // 若缓存中的连接够用，则直接返回对应数量的连接
             result = new ArrayList<>(connections).subList(0, connectionSize);
         } else if (!connections.isEmpty()) {
+            // 若缓存中的连接不够用，则创建对应连接，并放入到缓存中
             result = new ArrayList<>(connectionSize);
             result.addAll(connections);
             List<Connection> newConnections = createConnections(dataSourceName, connectionMode, dataSource, connectionSize - connections.size());
@@ -124,6 +130,7 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
                 cachedConnections.putAll(dataSourceName, newConnections);
             }
         } else {
+            // 若缓存中此数据源的连接为空，则创建相对应数量的连接放入缓存中
             result = new ArrayList<>(createConnections(dataSourceName, connectionMode, dataSource, connectionSize));
             synchronized (cachedConnections) {
                 cachedConnections.putAll(dataSourceName, result);
@@ -133,7 +140,11 @@ public abstract class AbstractConnectionAdapter extends AbstractUnsupportedOpera
     }
     
     @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    /**
+     * 根据连接模式来创建所需数量的连接
+     */
     private List<Connection> createConnections(final String dataSourceName, final ConnectionMode connectionMode, final DataSource dataSource, final int connectionSize) throws SQLException {
+       
         if (1 == connectionSize) {
             return Collections.singletonList(createConnection(dataSourceName, dataSource));
         }

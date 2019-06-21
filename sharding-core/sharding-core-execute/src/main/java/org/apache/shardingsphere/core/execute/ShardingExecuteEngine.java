@@ -39,6 +39,9 @@ import java.util.concurrent.ExecutionException;
  */
 public final class ShardingExecuteEngine implements AutoCloseable {
     
+    /**
+     * 并发执行服务ExecutorService
+     */
     private final ShardingExecutorService shardingExecutorService;
     
     private ListeningExecutorService executorService;
@@ -77,29 +80,61 @@ public final class ShardingExecuteEngine implements AutoCloseable {
     public <I, O> List<O> groupExecute(
         final Collection<ShardingExecuteGroup<I>> inputGroups, final ShardingGroupExecuteCallback<I, O> firstCallback, final ShardingGroupExecuteCallback<I, O> callback, final boolean serial)
         throws SQLException {
+        // 若执行执行分片组为空，这直接返回
         if (inputGroups.isEmpty()) {
             return Collections.emptyList();
         }
+        // 根据是否可串行执行标志，调用相对应的方法
         return serial ? serialExecute(inputGroups, firstCallback, callback) : parallelExecute(inputGroups, firstCallback, callback);
     }
     
+    /**
+     * 串行执行方法
+     *
+     * @param inputGroups 执行分片组
+     * @param firstCallback 第一个执行后的回调
+     * @param callback 全部执行后的回调
+     * @param <I>
+     * @param <O>
+     * @return
+     * @throws SQLException
+     */
     private <I, O> List<O> serialExecute(final Collection<ShardingExecuteGroup<I>> inputGroups, final ShardingGroupExecuteCallback<I, O> firstCallback,
                                          final ShardingGroupExecuteCallback<I, O> callback) throws SQLException {
         List<O> result = new LinkedList<>();
+        //首先获取第一个执行分片组，进行同步执行
         Iterator<ShardingExecuteGroup<I>> inputGroupsIterator = inputGroups.iterator();
         ShardingExecuteGroup<I> firstInputs = inputGroupsIterator.next();
         result.addAll(syncGroupExecute(firstInputs, null == firstCallback ? callback : firstCallback));
+        
+        //然后剩下分片组串行执行
         for (ShardingExecuteGroup<I> each : Lists.newArrayList(inputGroupsIterator)) {
             result.addAll(syncGroupExecute(each, callback));
         }
         return result;
     }
     
+    /**
+     * 并行执行方法
+     *
+     * @param inputGroups
+     * @param firstCallback
+     * @param callback
+     * @param <I>
+     * @param <O>
+     * @return
+     * @throws SQLException
+     */
     private <I, O> List<O> parallelExecute(final Collection<ShardingExecuteGroup<I>> inputGroups, final ShardingGroupExecuteCallback<I, O> firstCallback,
                                            final ShardingGroupExecuteCallback<I, O> callback) throws SQLException {
+        //首先获取第一个执行分片组，进行同步执行
         Iterator<ShardingExecuteGroup<I>> inputGroupsIterator = inputGroups.iterator();
         ShardingExecuteGroup<I> firstInputs = inputGroupsIterator.next();
+        
+        //剩下分片组并行执行
         Collection<ListenableFuture<Collection<O>>> restResultFutures = asyncGroupExecute(Lists.newArrayList(inputGroupsIterator), callback);
+       
+        //合并所有执行结果
         return getGroupResults(syncGroupExecute(firstInputs, null == firstCallback ? callback : firstCallback), restResultFutures);
     }
     

@@ -39,8 +39,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public final class SQLExecuteTemplate {
     
+    /**
+     * 底层SQL执行引擎
+     */
     private final ShardingExecuteEngine executeEngine;
     
+    /**
+     * 是否串行执行标志
+     */
     private final boolean serial;
     
     /**
@@ -70,6 +76,7 @@ public final class SQLExecuteTemplate {
     public <T> List<T> executeGroup(final Collection<ShardingExecuteGroup<? extends StatementExecuteUnit>> sqlExecuteGroups,
                                     final SQLExecuteCallback<T> firstCallback, final SQLExecuteCallback<T> callback) throws SQLException {
         try {
+            //调用ShardingExecuteEngine执行SQL分片组
             return executeEngine.groupExecute((Collection) sqlExecuteGroups, firstCallback, callback, serial);
         } catch (final SQLException ex) {
             ExecutorExceptionHandler.handleException(ex);

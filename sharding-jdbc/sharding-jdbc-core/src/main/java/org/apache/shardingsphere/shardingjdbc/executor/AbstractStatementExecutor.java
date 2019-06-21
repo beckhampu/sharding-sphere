@@ -50,6 +50,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
+ * SQL执行器的抽象类
+ *
  * Abstract statement executor.
  *
  * @author panjuan
@@ -58,6 +60,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Getter(AccessLevel.PROTECTED)
 public class AbstractStatementExecutor {
     
+    /**
+     * 数据库类型
+     */
     private final DatabaseType databaseType;
     
     @Getter
@@ -71,8 +76,14 @@ public class AbstractStatementExecutor {
     
     private final ShardingConnection connection;
     
+    /**
+     * SQL执行准备模板，用于获取分片执行单元，以及确定连接模式
+     */
     private final SQLExecutePrepareTemplate sqlExecutePrepareTemplate;
     
+    /**
+     * SQL执行模板，封装了执行分片单元组的方法
+     */
     private final SQLExecuteTemplate sqlExecuteTemplate;
     
     private final Collection<Connection> connections = new LinkedList<>();
@@ -90,6 +101,9 @@ public class AbstractStatementExecutor {
     @Getter
     private final List<ResultSet> resultSets = new CopyOnWriteArrayList<>();
     
+    /**
+     * SQL执行分片组
+     */
     private final Collection<ShardingExecuteGroup<StatementExecuteUnit>> executeGroups = new LinkedList<>();
     
     public AbstractStatementExecutor(final int resultSetType, final int resultSetConcurrency, final int resultSetHoldability, final ShardingConnection shardingConnection) {
@@ -125,7 +139,9 @@ public class AbstractStatementExecutor {
     
     @SuppressWarnings("unchecked")
     protected final <T> List<T> executeCallback(final SQLExecuteCallback<T> executeCallback) throws SQLException {
+        // 使用sqlExecuteTemplate执行SQL分片组
         List<T> result = sqlExecuteTemplate.executeGroup((Collection) executeGroups, executeCallback);
+        // 如果是改变表操作的相关语句，需要刷新元数据
         refreshShardingMetaDataIfNeeded(connection.getShardingContext(), sqlStatement);
         return result;
     }

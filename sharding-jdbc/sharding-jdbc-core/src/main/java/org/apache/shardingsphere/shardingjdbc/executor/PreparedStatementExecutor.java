@@ -66,11 +66,21 @@ public final class PreparedStatementExecutor extends AbstractStatementExecutor {
      * @throws SQLException SQL exception
      */
     public void init(final SQLRouteResult routeResult) throws SQLException {
+        // 设置SQL解析的语句对象SQLStatement
         setSqlStatement(routeResult.getSqlStatement());
+        //获取并设置所有的分片执行单元组
         getExecuteGroups().addAll(obtainExecuteGroups(routeResult.getRouteUnits()));
+        //缓存所有的statement对象和所有的sql参数
         cacheStatements();
     }
     
+    /**
+     * 根据路由结果获取分片执行单元
+     *
+     * @param routeUnits
+     * @return
+     * @throws SQLException
+     */
     private Collection<ShardingExecuteGroup<StatementExecuteUnit>> obtainExecuteGroups(final Collection<RouteUnit> routeUnits) throws SQLException {
         return getSqlExecutePrepareTemplate().getExecuteUnitGroups(routeUnits, new SQLExecutePrepareCallback() {
             
@@ -152,7 +162,9 @@ public final class PreparedStatementExecutor extends AbstractStatementExecutor {
      */
     public boolean execute() throws SQLException {
         boolean isExceptionThrown = ExecutorExceptionHandler.isExceptionThrown();
+        // 创建SQL的真正执行回调SQLExecuteCallback(比如：ps.execute())
         SQLExecuteCallback<Boolean> executeCallback = SQLExecuteCallbackFactory.getPreparedSQLExecuteCallback(getDatabaseType(), isExceptionThrown);
+        // 执行SQL
         List<Boolean> result = executeCallback(executeCallback);
         if (null == result || result.isEmpty() || null == result.get(0)) {
             return false;

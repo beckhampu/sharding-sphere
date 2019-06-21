@@ -50,6 +50,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ *
  * PreparedStatement that support sharding.
  *
  * @author zhangliang
@@ -59,17 +60,32 @@ import java.util.List;
  */
 public final class ShardingPreparedStatement extends AbstractShardingPreparedStatementAdapter {
     
+    /**
+     * ShardingSphere对Connection的封装
+     */
     @Getter
     private final ShardingConnection connection;
     
+    /**
+     * sql语句
+     */
     private final String sql;
     
+    /**
+     * PreparedStatement的分片引擎
+     */
     private final PreparedQueryShardingEngine shardingEngine;
     
+    /**
+     * PreparedStatement的SQL执行器
+     */
     private final PreparedStatementExecutor preparedStatementExecutor;
     
     private final BatchPreparedStatementExecutor batchPreparedStatementExecutor;
     
+    /**
+     * SQL路由结果
+     */
     private SQLRouteResult routeResult;
     
     private ResultSet currentResultSet;
@@ -105,8 +121,11 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     public ResultSet executeQuery() throws SQLException {
         ResultSet result;
         try {
+            //每次执行前清理上一次执行的相关信息
             clearPrevious();
+            //分片逻辑，包括sql的解析、路由、改写
             shard();
+            // 初始化PreparedStatement的SQL执行器
             initPreparedStatementExecutor();
             MergeEngine mergeEngine = MergeEngineFactory.newInstance(connection.getShardingContext().getDatabaseType(), connection.getShardingContext().getShardingRule(), 
                     routeResult, connection.getShardingContext().getMetaData().getTable(), preparedStatementExecutor.executeQuery());
@@ -166,9 +185,13 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     @Override
     public boolean execute() throws SQLException {
         try {
+            //每次执行前清理上一次执行的相关信息
             clearPrevious();
+            //分片逻辑，包括sql的解析、路由、改写
             shard();
+            // 初始化PreparedStatement的SQL执行器
             initPreparedStatementExecutor();
+            
             return preparedStatementExecutor.execute();
         } finally {
             clearBatch();
@@ -195,7 +218,9 @@ public final class ShardingPreparedStatement extends AbstractShardingPreparedSta
     }
     
     private void initPreparedStatementExecutor() throws SQLException {
+        //初始化PreparedStatement的SQL执行器
         preparedStatementExecutor.init(routeResult);
+        //为缓存的所有Statement对象设置参数，ps.setObject()
         setParametersForStatements();
     }
     
