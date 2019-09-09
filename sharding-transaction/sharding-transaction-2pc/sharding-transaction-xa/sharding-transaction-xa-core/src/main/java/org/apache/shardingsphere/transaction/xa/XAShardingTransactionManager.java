@@ -19,7 +19,7 @@ package org.apache.shardingsphere.transaction.xa;
 
 import com.atomikos.jdbc.AtomikosDataSourceBean;
 import lombok.SneakyThrows;
-import org.apache.shardingsphere.core.constant.DatabaseType;
+import org.apache.shardingsphere.spi.database.DatabaseType;
 import org.apache.shardingsphere.transaction.core.ResourceDataSource;
 import org.apache.shardingsphere.transaction.core.TransactionType;
 import org.apache.shardingsphere.transaction.spi.ShardingTransactionManager;
@@ -31,6 +31,7 @@ import org.apache.shardingsphere.transaction.xa.spi.XATransactionManager;
 import javax.sql.DataSource;
 import javax.transaction.Status;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -80,9 +81,8 @@ public final class XAShardingTransactionManager implements ShardingTransactionMa
         return Status.STATUS_NO_TRANSACTION != xaTransactionManager.getTransactionManager().getStatus();
     }
     
-    @SneakyThrows
     @Override
-    public Connection getConnection(final String dataSourceName) {
+    public Connection getConnection(final String dataSourceName) throws SQLException {
         SingleXAConnection singleXAConnection = singleXADataSourceMap.get(dataSourceName).getXAConnection();
         if (!enlistedXAResource.get().contains(dataSourceName)) {
             xaTransactionManager.enlistResource(singleXAConnection.getXAResource());

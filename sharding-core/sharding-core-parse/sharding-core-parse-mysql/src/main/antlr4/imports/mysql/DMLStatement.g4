@@ -17,7 +17,7 @@
 
 grammar DMLStatement;
 
-import Symbol, Keyword, Literals, BaseRule;
+import Symbol, Keyword, MySQLKeyword, Literals, BaseRule;
 
 insert
     : INSERT insertSpecification_ INTO? tableName partitionNames_? (insertValuesClause | setAssignmentsClause | insertSelectClause) onDuplicateKeyClause?
@@ -39,8 +39,16 @@ onDuplicateKeyClause
     : ON DUPLICATE KEY UPDATE assignment (COMMA_ assignment)*
     ;
 
+replace
+    : REPLACE replaceSpecification_? INTO? tableName partitionNames_? (insertValuesClause | setAssignmentsClause | insertSelectClause)
+    ;
+
+replaceSpecification_
+    : LOW_PRIORITY | DELAYED
+    ;
+
 update
-    : UPDATE updateSpecification_ tableReferences setAssignmentsClause whereClause?
+    : UPDATE updateSpecification_ tableReferences setAssignmentsClause whereClause? orderByClause? limitClause?
     ;
 
 updateSpecification_
@@ -48,7 +56,7 @@ updateSpecification_
     ;
 
 assignment
-    : columnName EQ_ assignmentValue
+    : columnName EQ_ VALUES? LP_? assignmentValue RP_?
     ;
 
 setAssignmentsClause
@@ -61,7 +69,11 @@ assignmentValues
     ;
 
 assignmentValue
-    : expr | DEFAULT
+    : expr | DEFAULT | blobValue
+    ;
+
+blobValue
+    : UL_BINARY STRING_
     ;
 
 delete
@@ -88,6 +100,68 @@ select
     : withClause_? unionClause_
     ;
 
+callStatement
+    : CALL identifier_ (LP_ (identifier_ | expr)? RP_)?
+    ;
+
+doStatement
+    : DO expr (COMMA_ expr)?
+    ;
+
+handlerStatement
+    : handlerOpenStatement | handlerReadIndexStatement | handlerReadStatement | handlerCloseStatement
+    ;
+
+handlerOpenStatement
+    : HANDLER tableName OPEN (AS? identifier_)?
+    ;
+
+handlerReadIndexStatement
+    : HANDLER tableName READ identifier_ ( comparisonOperator LP_ identifier_ RP_ | (FIRST | NEXT | PREV | LAST) ) 
+    (WHERE expr)? (LIMIT numberLiterals)?
+    ;
+
+handlerReadStatement
+    : HANDLER tableName READ (FIRST | NEXT)
+    (WHERE expr)? (LIMIT numberLiterals)?
+    ;
+
+handlerCloseStatement
+    : HANDLER tableName CLOSE
+    ;
+
+importStatement
+    : IMPORT TABLE FROM STRING_ (COMMA_ STRING_)?
+    ;
+
+loadDataStatement
+    : LOAD DATA
+      (LOW_PRIORITY | CONCURRENT)? LOCAL? 
+      INFILE STRING_
+      (REPLACE | IGNORE)?
+      INTO TABLE tableName
+      (PARTITION LP_ identifier_ (COMMA_ identifier_)* RP_ )?
+      (CHARACTER SET identifier_)?
+      ( (FIELDS | COLUMNS) selectFieldsInto_+ )?
+      ( LINES selectLinesInto_+ )?
+      ( IGNORE numberLiterals (LINES | ROWS) )?
+      ( LP_ identifier_ (COMMA_ identifier_)* RP_ )?
+      (setAssignmentsClause)?
+    ;
+
+loadXmlStatement
+    : LOAD XML
+      (LOW_PRIORITY | CONCURRENT)? LOCAL? 
+      INFILE STRING_
+      (REPLACE | IGNORE)?
+      INTO TABLE tableName
+      (CHARACTER SET identifier_)?
+      (ROWS IDENTIFIED BY LT_ STRING_ GT_)?
+      ( IGNORE numberLiterals (LINES | ROWS) )?
+      ( LP_ identifier_ (COMMA_ identifier_)* RP_ )?
+      (setAssignmentsClause)?
+    ;
+
 withClause_
     : WITH RECURSIVE? cteClause_ (COMMA_ cteClause_)*
     ;
@@ -101,7 +175,7 @@ unionClause_
     ;
 
 selectClause
-    : SELECT selectSpecification_* selectItems fromClause? whereClause? groupByClause? havingClause? windowClause_? orderByClause? limitClause?
+    : SELECT selectSpecification_* selectItems fromClause? whereClause? groupByClause? havingClause? windowClause_? orderByClause? limitClause? selectIntoExpression_? lockClause?
     ;
 
 selectSpecification_
@@ -149,7 +223,7 @@ tableReference
     ;
 
 tableFactor
-    : tableName partitionNames_? (AS? alias)? indexHintList_? | subquery AS? alias columnNames? | LP_ tableReferences RP_
+    : tableName partitionNames_? (AS? alias)? indexHintList_? | subquery columnNames? | LP_ tableReferences RP_
     ;
 
 partitionNames_ 
@@ -178,7 +252,7 @@ whereClause
     : WHERE expr
     ;
 
-groupByClause 
+groupByClause
     : GROUP BY orderByItem (COMMA_ orderByItem)* (WITH ROLLUP)?
     ;
 
@@ -187,11 +261,15 @@ havingClause
     ;
 
 limitClause
-    : LIMIT (rangeItem_ (COMMA_ rangeItem_)? | rangeItem_ OFFSET rangeItem_)
+    : LIMIT ((limitOffset COMMA_)? limitRowCount | limitRowCount OFFSET limitOffset)
     ;
 
-rangeItem_
-    : number | parameterMarker
+limitRowCount
+    : numberLiterals | parameterMarker
+    ;
+    
+limitOffset
+    : numberLiterals | parameterMarker
     ;
 
 windowClause_
@@ -203,5 +281,22 @@ windowItem_
     ;
 
 subquery
-    : LP_ unionClause_ RP_
+    : LP_ unionClause_ RP_ AS? alias?
+    ;
+
+selectLinesInto_
+    : STARTING BY STRING_ | TERMINATED BY STRING_
+    ;
+
+selectFieldsInto_
+    : TERMINATED BY STRING_ | OPTIONALLY? ENCLOSED BY STRING_ | ESCAPED BY STRING_
+    ;
+
+selectIntoExpression_
+    : INTO identifier_ (COMMA_ identifier_ )* | INTO DUMPFILE STRING_
+    | (INTO OUTFILE STRING_ (CHARACTER SET IDENTIFIER_)?((FIELDS | COLUMNS) selectFieldsInto_+)? (LINES selectLinesInto_+)?)
+    ;
+
+lockClause
+    : FOR UPDATE | LOCK IN SHARE MODE
     ;

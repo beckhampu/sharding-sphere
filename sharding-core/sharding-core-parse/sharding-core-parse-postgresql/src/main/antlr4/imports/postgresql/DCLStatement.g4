@@ -17,14 +17,26 @@
 
 grammar DCLStatement;
 
-import Symbol, Keyword, Literals, BaseRule;
+import Symbol, Keyword, PostgreSQLKeyword, Literals, BaseRule;
 
 grant
-    : GRANT (privileges_ ON onObjectClause_ | ignoredIdentifiers_)
+    : GRANT (privilegeClause_ | roleClause_)
     ;
 
 revoke
-    : REVOKE (GRANT OPTION FOR)? (privileges_ ON onObjectClause_ | ignoredIdentifiers_)
+    : REVOKE optionForClause_? (privilegeClause_ | roleClause_)
+    ;
+
+privilegeClause_
+    : privileges_ ON onObjectClause_
+    ;
+    
+roleClause_
+    : ignoredIdentifiers_
+    ;
+
+optionForClause_
+    : (GRANT | ADMIN) OPTION FOR
     ;
 
 privileges_
@@ -32,8 +44,7 @@ privileges_
     ;
 
 privilegeType_
-    : ALL PRIVILEGES?
-    | SELECT
+    : SELECT
     | INSERT
     | UPDATE
     | DELETE
@@ -46,11 +57,12 @@ privilegeType_
     | TEMP
     | EXECUTE
     | USAGE
+    | ALL PRIVILEGES?
     ;
 
 onObjectClause_
-    : SEQUENCE
-    | DATABASE
+    : DATABASE 
+    | SCHEMA
     | DOMAIN
     | FOREIGN
     | FUNCTION
@@ -59,10 +71,10 @@ onObjectClause_
     | ALL
     | LANGUAGE
     | LARGE OBJECT
-    | SCHEMA
     | TABLESPACE
-    | TYPE
-    | TABLE? tableName (COMMA_ tableName)*
+    | TYPE 
+    | SEQUENCE
+    | TABLE? tableNames
     ;
 
 createUser

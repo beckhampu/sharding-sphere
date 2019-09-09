@@ -17,32 +17,49 @@
 
 grammar BaseRule;
 
-import Symbol, Keyword, Literals;
+import Symbol, Keyword, MySQLKeyword, Literals;
 
 parameterMarker
     : QUESTION_
     ;
 
-number
-   : NUMBER_
-   ;
-
-string
-    : STRING_
+literals
+    : stringLiterals
+    | numberLiterals
+    | dateTimeLiterals
+    | hexadecimalLiterals
+    | bitValueLiterals
+    | booleanLiterals
+    | nullValueLiterals
     ;
 
-literals_
-    : number
-    | string
-    | TRUE
-    | FALSE
-    | NULL
-    | BIT_NUM_
-    | HEX_DIGIT_
-    | (DATE | TIME | TIMESTAMP) STRING_
+stringLiterals
+    : characterSetName_? STRING_ collateClause_?
+    ;
+
+numberLiterals
+   : MINUS_? NUMBER_
+   ;
+
+dateTimeLiterals
+    : (DATE | TIME | TIMESTAMP) STRING_
     | LBE_ identifier_ STRING_ RBE_
-    | IDENTIFIER_ STRING_ COLLATE (STRING_ | IDENTIFIER_)?
-    | characterSet_? BIT_NUM_ collateClause_?
+    ;
+
+hexadecimalLiterals
+    : characterSetName_? HEX_DIGIT_ collateClause_?
+    ;
+
+bitValueLiterals
+    : characterSetName_? BIT_NUM_ collateClause_?
+    ;
+    
+booleanLiterals
+    : TRUE | FALSE
+    ;
+
+nullValueLiterals
+    : NULL
     ;
 
 identifier_
@@ -50,7 +67,12 @@ identifier_
     ;
 
 variable_
-    : (AT_ AT_)? (GLOBAL | PERSIST | PERSIST_ONLY | SESSION)? DOT_? identifier_
+    : (AT_? AT_)? (GLOBAL | PERSIST | PERSIST_ONLY | SESSION)? DOT_? identifier_
+    ;
+
+scope_
+    : (GLOBAL | PERSIST | PERSIST_ONLY | SESSION)
+    | AT_ AT_ (GLOBAL | PERSIST | PERSIST_ONLY | SESSION) DOT_
     ;
 
 unreservedWord_
@@ -75,45 +97,109 @@ unreservedWord_
     | QUARTER | YEAR | AGAINST | LANGUAGE | MODE | QUERY | EXPANSION
     | BOOLEAN | MAX | MIN | SUM | COUNT | AVG | BIT_AND
     | BIT_OR | BIT_XOR | GROUP_CONCAT | JSON_ARRAYAGG | JSON_OBJECTAGG | STD | STDDEV
-    | STDDEV_POP | STDDEV_SAMP | VAR_POP | VAR_SAMP | VARIANCE
+    | STDDEV_POP | STDDEV_SAMP | VAR_POP | VAR_SAMP | VARIANCE | EXTENDED | STATUS
+    | FIELDS | INDEXES | USER | ROLE | OJ | AUTOCOMMIT | OFF | ROTATE | INSTANCE | MASTER | BINLOG |ERROR
+    | SCHEDULE | COMPLETION | DO | DEFINER | START | EVERY | HOST | SOCKET | OWNER | PORT | RETURNS | CONTAINS
+    | SECURITY | INVOKER | UNDEFINED | MERGE | TEMPTABLE | CASCADED | LOCAL | SERVER | WRAPPER | OPTIONS | DATAFILE
+    | FILE_BLOCK_SIZE | EXTENT_SIZE | INITIAL_SIZE | AUTOEXTEND_SIZE | MAX_SIZE | NODEGROUP
+    | WAIT | LOGFILE | UNDOFILE | UNDO_BUFFER_SIZE | REDO_BUFFER_SIZE | DEFINITION | ORGANIZATION
+    | DESCRIPTION | REFERENCE | FOLLOWS | PRECEDES | NAME |CLOSE | OPEN | NEXT | HANDLER | PREV
+    | IMPORT | CONCURRENT | XML | POSITION | SHARE | DUMPFILE
+    ;
+
+schemaName
+    : identifier_
     ;
 
 tableName
-    : (identifier_ DOT_)? identifier_
+    : (owner DOT_)? name
     ;
 
 columnName
-    : (identifier_ DOT_)? identifier_
+    : (owner DOT_)? name
+    ;
+
+userName
+    : (STRING_ | IDENTIFIER_) AT_ (STRING_ IDENTIFIER_)
+    | identifier_
+    | STRING_
+    ;
+
+eventName
+    : (STRING_ | IDENTIFIER_) AT_ (STRING_ IDENTIFIER_)
+    | identifier_
+    | STRING_ 
+    ;
+
+serverName
+    : identifier_
+    | STRING_
+    ; 
+
+wrapperName
+    : identifier_
+    | STRING_
+    ;
+
+functionName
+    : identifier_
+    | (owner DOT_)? identifier_
+    ;
+
+viewName
+    : identifier_
+    | (owner DOT_)? identifier_
+    ;
+
+owner
+    : identifier_
+    ;
+
+name
+    : identifier_
     ;
 
 columnNames
-    : LP_ columnName (COMMA_ columnName)* RP_
+    : LP_? columnName (COMMA_ columnName)* RP_?
+    ;
+
+tableNames
+    : LP_? tableName (COMMA_ tableName)* RP_?
     ;
 
 indexName
     : identifier_
     ;
 
+characterSetName_
+    : IDENTIFIER_
+    ;
+
+collationName_
+   : IDENTIFIER_
+   ;
+
 expr
-    : expr logicalOperator_ expr
+    : expr logicalOperator expr
+    | expr XOR expr
     | notOperator_ expr
     | LP_ expr RP_
-    | booleanPrimary
+    | booleanPrimary_
+    ;
+
+logicalOperator
+    : OR | OR_ | AND | AND_
     ;
 
 notOperator_
     : NOT | NOT_
     ;
 
-logicalOperator_
-    : OR | OR_ | XOR | AND | AND_
-    ;
-
-booleanPrimary
-    : booleanPrimary IS NOT? (TRUE | FALSE | UNKNOWN | NULL)
-    | booleanPrimary SAFE_EQ_ predicate
-    | booleanPrimary comparisonOperator predicate
-    | booleanPrimary comparisonOperator (ALL | ANY) subquery
+booleanPrimary_
+    : booleanPrimary_ IS NOT? (TRUE | FALSE | UNKNOWN | NULL)
+    | booleanPrimary_ SAFE_EQ_ predicate
+    | booleanPrimary_ comparisonOperator predicate
+    | booleanPrimary_ comparisonOperator (ALL | ANY) subquery
     | predicate
     ;
 
@@ -152,7 +238,7 @@ bitExpr
 simpleExpr
     : functionCall
     | parameterMarker
-    | literals_
+    | literals
     | columnName
     | simpleExpr COLLATE (STRING_ | identifier_)
     | variable_
@@ -218,7 +304,7 @@ specialFunction_
     ;
 
 groupConcatFunction_
-    : GROUP_CONCAT LP_ distinct? (expr (COMMA_ expr)* | ASTERISK_)? (orderByClause (SEPARATOR expr)?)? RP_
+    : GROUP_CONCAT LP_ distinct? (expr (COMMA_ expr)* | ASTERISK_)? (orderByClause)? (SEPARATOR expr)? RP_
     ;
 
 windowFunction_
@@ -271,7 +357,7 @@ regularFunction_
     ;
 
 regularFunctionName_
-    : identifier_ | IF | CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP | NOW | REPLACE
+    : identifier_ | IF | CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP | NOW | REPLACE | INTERVAL | SUBSTRING
     ;
 
 matchExpression_
@@ -313,7 +399,7 @@ orderByClause
     ;
 
 orderByItem
-    : (columnName | number | expr) (ASC | DESC)?
+    : (columnName | numberLiterals | expr) (ASC | DESC)?
     ;
 
 dataType
@@ -329,7 +415,7 @@ dataTypeLength
     ;
 
 characterSet_
-    : (CHARACTER | CHAR) SET EQ_? ignoredIdentifier_ | CHARSET EQ_? ignoredIdentifier_
+    : (CHARACTER | CHAR) SET EQ_? ignoredIdentifier_
     ;
 
 collateClause_

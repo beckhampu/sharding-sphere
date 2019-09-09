@@ -21,7 +21,8 @@ import com.alibaba.druid.pool.xa.DruidXADataSource;
 import com.atomikos.jdbc.AtomikosDataSourceBean;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.SneakyThrows;
-import org.apache.shardingsphere.core.constant.DatabaseType;
+import org.apache.shardingsphere.core.database.DatabaseTypes;
+import org.apache.shardingsphere.spi.database.DatabaseType;
 import org.apache.shardingsphere.transaction.core.ResourceDataSource;
 import org.apache.shardingsphere.transaction.core.TransactionType;
 import org.apache.shardingsphere.transaction.xa.fixture.DataSourceUtils;
@@ -43,6 +44,7 @@ import javax.transaction.SystemException;
 import javax.transaction.TransactionManager;
 import java.lang.reflect.Field;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -64,7 +66,7 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 public final class XAShardingTransactionManagerTest {
     
-    private XAShardingTransactionManager xaShardingTransactionManager = new XAShardingTransactionManager();
+    private final XAShardingTransactionManager xaShardingTransactionManager = new XAShardingTransactionManager();
     
     @Mock
     private XATransactionManager xaTransactionManager;
@@ -85,8 +87,8 @@ public final class XAShardingTransactionManagerTest {
     
     @Test
     public void assertRegisterXATransactionalDataSources() {
-        Collection<ResourceDataSource> resourceDataSources = createResourceDataSources(DruidXADataSource.class, DatabaseType.MySQL);
-        xaShardingTransactionManager.init(DatabaseType.MySQL, resourceDataSources);
+        Collection<ResourceDataSource> resourceDataSources = createResourceDataSources(DruidXADataSource.class, DatabaseTypes.getActualDatabaseType("MySQL"));
+        xaShardingTransactionManager.init(DatabaseTypes.getActualDatabaseType("MySQL"), resourceDataSources);
         for (ResourceDataSource each : resourceDataSources) {
             verify(xaTransactionManager).registerRecoveryResource(each.getUniqueResourceName(), (XADataSource) each.getDataSource());
         }
@@ -94,14 +96,14 @@ public final class XAShardingTransactionManagerTest {
     
     @Test
     public void assertRegisterAtomikosDataSourceBeans() {
-        xaShardingTransactionManager.init(DatabaseType.MySQL, createAtomikosDataSourceBeanResource());
+        xaShardingTransactionManager.init(DatabaseTypes.getActualDatabaseType("MySQL"), createAtomikosDataSourceBeanResource());
         verify(xaTransactionManager, times(0)).registerRecoveryResource(anyString(), any(XADataSource.class));
     }
     
     @Test
     public void assertRegisterNoneXATransactionalDAtaSources() {
-        Collection<ResourceDataSource> resourceDataSources = createResourceDataSources(HikariDataSource.class, DatabaseType.MySQL);
-        xaShardingTransactionManager.init(DatabaseType.MySQL, resourceDataSources);
+        Collection<ResourceDataSource> resourceDataSources = createResourceDataSources(HikariDataSource.class, DatabaseTypes.getActualDatabaseType("MySQL"));
+        xaShardingTransactionManager.init(DatabaseTypes.getActualDatabaseType("MySQL"), resourceDataSources);
         Map<String, SingleXADataSource> cachedXADatasourceMap = getCachedSingleXADataSourceMap();
         assertThat(cachedXADatasourceMap.size(), is(2));
     }
@@ -119,7 +121,7 @@ public final class XAShardingTransactionManagerTest {
     }
     
     @Test
-    public void assertGetConnection() {
+    public void assertGetConnection() throws SQLException {
         setCachedSingleXADataSourceMap("ds1");
         Connection actual = xaShardingTransactionManager.getConnection("ds1");
         assertThat(actual, instanceOf(Connection.class));
@@ -127,7 +129,7 @@ public final class XAShardingTransactionManagerTest {
     }
     
     @Test
-    public void assertGetConnectionWithoutEnlist() {
+    public void assertGetConnectionWithoutEnlist() throws SQLException {
         setCachedSingleXADataSourceMap("ds1");
         Connection actual = xaShardingTransactionManager.getConnection("ds1");
         assertThat(actual, instanceOf(Connection.class));
@@ -160,8 +162,7 @@ public final class XAShardingTransactionManagerTest {
         field.set(xaShardingTransactionManager, createMockSingleXADataSourceMap(datasourceName));
     }
     
-    @SneakyThrows
-    private Map<String, SingleXADataSource> createMockSingleXADataSourceMap(final String datasourceName) {
+    private Map<String, SingleXADataSource> createMockSingleXADataSourceMap(final String datasourceName) throws SQLException {
         SingleXADataSource singleXADataSource = mock(SingleXADataSource.class);
         SingleXAConnection singleXAConnection = mock(SingleXAConnection.class);
         XADataSource xaDataSource = mock(XADataSource.class);

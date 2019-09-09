@@ -17,8 +17,11 @@
 
 package org.apache.shardingsphere.shardingjdbc.jdbc.core.datasource.metadata;
 
+import com.google.common.base.Optional;
+import org.apache.shardingsphere.core.rule.DataNode;
 import org.apache.shardingsphere.core.rule.ShardingDataSourceNames;
 import org.apache.shardingsphere.core.rule.ShardingRule;
+import org.apache.shardingsphere.core.rule.TableRule;
 import org.apache.shardingsphere.shardingjdbc.jdbc.core.resultset.DatabaseMetaDataResultSet;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,6 +49,10 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 public final class CachedDatabaseMetaDataTest {
     
+    private static final String DATA_SOURCE_NAME = "ds";
+    
+    private static final String TABLE_NAME = "table";
+    
     @Mock
     private DataSource dataSource;
     
@@ -64,7 +71,7 @@ public final class CachedDatabaseMetaDataTest {
     
     @Before
     public void setUp() throws SQLException {
-        dataSourceMap.put("ds", dataSource);
+        dataSourceMap.put(DATA_SOURCE_NAME, dataSource);
         when(dataSource.getConnection()).thenReturn(connection);
         when(connection.getMetaData()).thenReturn(databaseMetaData);
         when(resultSet.getMetaData()).thenReturn(mock(ResultSetMetaData.class));
@@ -74,9 +81,11 @@ public final class CachedDatabaseMetaDataTest {
     private ShardingRule mockShardingRule() {
         ShardingRule result = mock(ShardingRule.class);
         ShardingDataSourceNames shardingDataSourceNames = mock(ShardingDataSourceNames.class);
-        when(shardingDataSourceNames.getRandomDataSourceName()).thenReturn("ds");
-        when(shardingDataSourceNames.getRawMasterDataSourceName("ds")).thenReturn("ds");
+        when(shardingDataSourceNames.getRandomDataSourceName()).thenReturn(DATA_SOURCE_NAME);
+        when(shardingDataSourceNames.getRawMasterDataSourceName(DATA_SOURCE_NAME)).thenReturn(DATA_SOURCE_NAME);
         when(result.getShardingDataSourceNames()).thenReturn(shardingDataSourceNames);
+        when(result.findTableRule(TABLE_NAME)).thenReturn(Optional.of(new TableRule(DATA_SOURCE_NAME, TABLE_NAME)));
+        when(result.getDataNode(TABLE_NAME)).thenReturn(new DataNode(DATA_SOURCE_NAME, TABLE_NAME));
         return result;
     }
     
@@ -848,8 +857,8 @@ public final class CachedDatabaseMetaDataTest {
     
     @Test
     public void assertGetTables() throws SQLException {
-        when(databaseMetaData.getTables("test", null, null, null)).thenReturn(resultSet);
-        assertThat(cachedDatabaseMetaData.getTables("test", null, null, null), instanceOf(DatabaseMetaDataResultSet.class));
+        when(databaseMetaData.getTables("test", null, "%" + TABLE_NAME + "%", null)).thenReturn(resultSet);
+        assertThat(cachedDatabaseMetaData.getTables("test", null, TABLE_NAME, null), instanceOf(DatabaseMetaDataResultSet.class));
     }
     
     @Test
@@ -938,8 +947,8 @@ public final class CachedDatabaseMetaDataTest {
     
     @Test
     public void assertGetIndexInfo() throws SQLException {
-        when(databaseMetaData.getIndexInfo("test", null, null, true, true)).thenReturn(resultSet);
-        assertThat(cachedDatabaseMetaData.getIndexInfo("test", null, null, true, true), instanceOf(DatabaseMetaDataResultSet.class));
+        when(databaseMetaData.getIndexInfo("test", null, TABLE_NAME, true, true)).thenReturn(resultSet);
+        assertThat(cachedDatabaseMetaData.getIndexInfo("test", null, TABLE_NAME, true, true), instanceOf(DatabaseMetaDataResultSet.class));
     }
     
     @Test

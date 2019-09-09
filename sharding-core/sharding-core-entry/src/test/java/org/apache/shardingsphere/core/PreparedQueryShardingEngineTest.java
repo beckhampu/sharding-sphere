@@ -18,17 +18,20 @@
 package org.apache.shardingsphere.core;
 
 import lombok.SneakyThrows;
-import org.apache.shardingsphere.core.constant.DatabaseType;
-import org.apache.shardingsphere.core.metadata.ShardingMetaData;
-import org.apache.shardingsphere.core.parse.cache.ParsingResultCache;
+import org.apache.shardingsphere.core.database.DatabaseTypes;
+import org.apache.shardingsphere.core.metadata.ShardingSphereMetaData;
+import org.apache.shardingsphere.core.parse.SQLParseEngine;
 import org.apache.shardingsphere.core.route.PreparedStatementRoutingEngine;
+import org.apache.shardingsphere.core.rule.EncryptRule;
 import org.apache.shardingsphere.core.rule.ShardingRule;
 import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.lang.reflect.Field;
+import java.sql.SQLException;
 import java.util.Collections;
 
 import static org.mockito.Mockito.mock;
@@ -48,7 +51,11 @@ public final class PreparedQueryShardingEngineTest extends BaseShardingEngineTes
     
     @Before
     public void setUp() {
-        shardingEngine = new PreparedQueryShardingEngine(getSql(), mock(ShardingRule.class), getShardingProperties(), mock(ShardingMetaData.class), DatabaseType.MySQL, new ParsingResultCache());
+        ShardingRule shardingRule = mock(ShardingRule.class);
+        EncryptRule encryptRule = mock(EncryptRule.class);
+        when(shardingRule.getEncryptRule()).thenReturn(encryptRule);
+        shardingEngine = new PreparedQueryShardingEngine(
+                getSql(), shardingRule, getShardingProperties(), mock(ShardingSphereMetaData.class), DatabaseTypes.getActualDatabaseType("MySQL"), mock(SQLParseEngine.class));
         setRoutingEngine();
     }
     
@@ -62,5 +69,11 @@ public final class PreparedQueryShardingEngineTest extends BaseShardingEngineTes
     protected void assertShard() {
         when(routingEngine.route(getParameters())).thenReturn(createSQLRouteResult());
         assertSQLRouteResult(shardingEngine.shard(getSql(), getParameters()));
+    }
+    
+    @Test(expected = SQLException.class)
+    public void assertWithRouteException() {
+        when(routingEngine.route(getParameters())).thenThrow(SQLException.class);
+        shardingEngine.shard(getSql(), getParameters());
     }
 }

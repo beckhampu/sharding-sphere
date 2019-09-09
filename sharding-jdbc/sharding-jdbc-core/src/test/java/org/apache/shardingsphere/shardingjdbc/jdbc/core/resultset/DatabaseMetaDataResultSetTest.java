@@ -18,7 +18,6 @@
 package org.apache.shardingsphere.shardingjdbc.jdbc.core.resultset;
 
 import com.google.common.collect.Lists;
-import lombok.SneakyThrows;
 import org.apache.shardingsphere.core.rule.ShardingRule;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,6 +64,12 @@ public class DatabaseMetaDataResultSetTest {
     
     private static final Date DATE = new Date(System.currentTimeMillis());
     
+    private static final String INDEX_NAME_COLUMN_LABEL = "INDEX_NAME";
+    
+    private static final String ACTUAL_INDEX_NAME = "idx_index_test_table_0";
+    
+    private static final String LOGIC_INDEX_NAME = "idx_index";
+    
     @Mock
     private ResultSetMetaData resultSetMetaData;
     
@@ -76,18 +81,17 @@ public class DatabaseMetaDataResultSetTest {
         databaseMetaDataResultSet = new DatabaseMetaDataResultSet(mockResultSet(), mockShardingRule());
     }
     
-    @SneakyThrows
-    private void mockResultSetMetaData() {
-        when(resultSetMetaData.getColumnCount()).thenReturn(5);
+    private void mockResultSetMetaData() throws SQLException {
+        when(resultSetMetaData.getColumnCount()).thenReturn(6);
         when(resultSetMetaData.getColumnLabel(1)).thenReturn(TABLE_NAME_COLUMN_LABEL);
         when(resultSetMetaData.getColumnLabel(2)).thenReturn(NON_TABLE_NAME_COLUMN_LABEL);
         when(resultSetMetaData.getColumnLabel(3)).thenReturn(NUMBER_COLUMN_LABEL);
         when(resultSetMetaData.getColumnLabel(4)).thenReturn(BYTES_COLUMN_LABEL);
         when(resultSetMetaData.getColumnLabel(5)).thenReturn(DATE_COLUMN_LABEL);
+        when(resultSetMetaData.getColumnLabel(6)).thenReturn(INDEX_NAME_COLUMN_LABEL);
     }
     
-    @SneakyThrows
-    private ResultSet mockResultSet() {
+    private ResultSet mockResultSet() throws SQLException {
         ResultSet result = mock(ResultSet.class);
         when(result.getMetaData()).thenReturn(resultSetMetaData);
         when(result.getString(1)).thenReturn(ACTUAL_TABLE_NAME, ACTUAL_TABLE_NAME);
@@ -95,6 +99,7 @@ public class DatabaseMetaDataResultSetTest {
         when(result.getObject(3)).thenReturn(NUMBER);
         when(result.getObject(4)).thenReturn(BYTES);
         when(result.getObject(5)).thenReturn(DATE);
+        when(result.getString(6)).thenReturn(ACTUAL_INDEX_NAME);
         when(result.getType()).thenReturn(ResultSet.TYPE_FORWARD_ONLY);
         when(result.getConcurrency()).thenReturn(ResultSet.CONCUR_READ_ONLY);
         when(result.next()).thenReturn(true, true, false);
@@ -131,6 +136,7 @@ public class DatabaseMetaDataResultSetTest {
         assertThat(databaseMetaDataResultSet.getString(1), is(LOGIC_TABLE_NAME));
         assertThat(databaseMetaDataResultSet.getString(2), is("true"));
         assertThat(databaseMetaDataResultSet.getString(3), is("100"));
+        assertThat(databaseMetaDataResultSet.getString(6), is(LOGIC_INDEX_NAME));
     }
     
     @Test
@@ -139,6 +145,7 @@ public class DatabaseMetaDataResultSetTest {
         assertThat(databaseMetaDataResultSet.getString(TABLE_NAME_COLUMN_LABEL), is(LOGIC_TABLE_NAME));
         assertThat(databaseMetaDataResultSet.getString(NON_TABLE_NAME_COLUMN_LABEL), is("true"));
         assertThat(databaseMetaDataResultSet.getString(NUMBER_COLUMN_LABEL), is("100"));
+        assertThat(databaseMetaDataResultSet.getString(INDEX_NAME_COLUMN_LABEL), is(LOGIC_INDEX_NAME));
     }
     
     @Test
@@ -314,7 +321,7 @@ public class DatabaseMetaDataResultSetTest {
     @Test(expected = SQLException.class)
     public void assertGetObjectOutOfIndexRange() throws SQLException {
         databaseMetaDataResultSet.next();
-        databaseMetaDataResultSet.getObject(6);
+        databaseMetaDataResultSet.getObject(7);
     }
     
     @Test(expected = SQLException.class)
